@@ -65,9 +65,9 @@ sys-cluster/kubeadm
 sys-cluster/kubelet
 sys-cluster/kubectl
 net-misc/openssh
-net-misc/keepalived
+sys-cluster/keepalived
 net-fs/nfs-utils
-sys-apps/etcd-utils
+dev-db/etcd
 ```
 
 ### Kernel Config (Required for Cilium kube-proxy Replacement)

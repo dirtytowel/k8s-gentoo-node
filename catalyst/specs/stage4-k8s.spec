@@ -3,13 +3,13 @@ target: stage4
 version_stamp: k8s
 rel_type: default
 profile: default/linux/amd64/23.0/systemd
-source_subpath: stage3-amd64-systemd
+source_subpath: stage3-amd64-systemd-latest.tar.xz
 compression_mode: xz
 decompressor_search_order: xz
-update_seed: yes
-portage_confdir: /home/ethan/dat/repos/gentoo-k8s/catalyst/portage
-root_overlay: /home/ethan/dat/repos/gentoo-k8s/catalyst/root_overlay
-packages:
+snapshot_treeish: master
+portage_confdir: /catalyst/portage
+stage4/root_overlay: /catalyst/root_overlay
+stage4/packages:
 	sys-kernel/gentoo-kernel
 	sys-apps/systemd
 	app-containers/containerd
@@ -17,8 +17,7 @@ packages:
 	sys-cluster/kubelet
 	sys-cluster/kubectl
 	net-misc/openssh
-	net-misc/keepalived
+	sys-cluster/keepalived
 	net-fs/nfs-utils
-	sys-apps/etcd-utils
+	dev-db/etcd
 	sys-boot/grub
-boot/kernel: gentoo-kernel
