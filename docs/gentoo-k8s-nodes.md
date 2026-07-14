@@ -97,7 +97,6 @@ kubelet
 keepalived
 systemd-networkd
 systemd-resolved
-firstboot          (custom oneshot — see Phase 3)
 ```
 
 ### What the Tarball Does NOT Contain
@@ -111,8 +110,8 @@ firstboot          (custom oneshot — see Phase 3)
 
 ## Phase 2: Install (Per Node, ~5 Minutes)
 
-**Goal:** Get base system onto disk, give the node its identity, get it to first boot.
-Performed from a Gentoo minimal install ISO.
+**Goal:** Get base system onto disk, write host-specific config, get it to first boot.
+Performed from a Gentoo minimal install ISO via PiKVM/Ansible.
 
 ```bash
 # Partition
@@ -130,40 +129,24 @@ mount /dev/sda1 /mnt/gentoo/boot
 # Untar base system
 tar -xpf stage4-k8s.tar.xz -C /mnt/gentoo
 
-# Drop node identity — the ONLY per-node manual step
-cat > /mnt/gentoo/boot/node-config <<EOF
-NODE_IP=10.30.2.10x
-NODE_GW=10.30.2.1
-NODE_HOSTNAME=k8s-cpX
-EOF
+# Write host-specific config
+# /mnt/gentoo/etc/systemd/network/10-<iface>.network
+# /mnt/gentoo/etc/hostname
+# /mnt/gentoo/etc/fstab
 
-# Bootloader and fstab
+# Bootloader
 grub-install --target=x86_64-efi --efi-directory=/mnt/gentoo/boot /dev/sda
-# write /mnt/gentoo/etc/fstab
 
 reboot
 ```
 
 ---
 
-## Phase 3: Firstboot (Automatic, No Intervention Required)
+## Phase 3: Boot Handoff
 
-**Goal:** Node gets a static IP and sshd comes up so Ansible can reach it.
+**Goal:** Node boots with the network, hostname, and fstab already written during Phase 2.
 
-A systemd oneshot service baked into the tarball. Runs exactly once on first boot,
-never again.
-
-```
-firstboot.service:
-  1. reads /boot/node-config
-  2. writes /etc/systemd/network/10-eth0.network  (static IP + gateway)
-  3. writes /etc/hostname
-  4. touches /etc/firstboot-done
-  5. masks itself (never runs again)
-  6. network comes up, sshd starts
-```
-
-Node is now SSH-reachable on its static IP. Hand off to Ansible.
+No firstboot service, no `/boot/node-config`, no one-shot config generator. PiKVM/Ansible writes the real files before reboot; systemd-networkd and sshd start normally.
 
 ---
 
@@ -239,9 +222,9 @@ kubectl drain k8s-cpX --ignore-daemonsets --delete-emptydir-data
 etcdctl member list
 etcdctl member remove <member-id>
 
-# 3. Repeat Phase 2 on the node (ISO boot → untar → node-config → reboot)
+# 3. Repeat Phase 2 on the node (ISO boot → untar → host config → reboot)
 
-# 4. Phase 3 runs automatically (firstboot service, no intervention)
+# 4. Node boots with static network config and sshd
 
 # 5. Re-run Ansible (kubeadm join --control-plane this time, not init)
 ansible-playbook site.yml --limit k8s-cpX

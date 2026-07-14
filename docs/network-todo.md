@@ -16,22 +16,6 @@ Physical LAN IPs only. Do not use this range for pod IPs, because apparently we 
 | `10.30.2.200-10.30.2.220` | MetalLB LoadBalancer pool, Traefik starts at `.200` |
 | `10.30.2.221-10.30.2.254` | Reserved |
 
-## Firstboot node identity
-
-Each node gets `/boot/node-config` during install:
-
-```sh
-NODE_IP=10.30.2.101
-NODE_GW=10.30.2.1
-NODE_HOSTNAME=k8s-cp1
-NODE_IFACE=eth0
-```
-
-Required: `NODE_IP`, `NODE_GW`, `NODE_HOSTNAME`.
-Optional: `NODE_IFACE`; if missing, firstboot uses the first non-loopback NIC.
-
-Firstboot only writes the static node IP, gateway, DNS fallback, and hostname so Ansible can SSH in. It does not configure k8s, VIPs, Cilium, or MetalLB.
-
 ## Control-plane VIP
 
 Keepalived owns `10.30.2.100`.
@@ -69,13 +53,14 @@ Pods do not get DHCP leases from the LAN. Cilium allocates pod IPs from the pod 
 
 Order of operations:
 
-1. Firstboot configures node LAN IP.
-2. Ansible applies sysctls and kernel module config.
-3. Ansible configures keepalived API VIP.
-4. Kubeadm initializes or joins control plane nodes.
-5. Cilium handles pod networking and kube-proxy replacement.
-6. MetalLB advertises LoadBalancer IPs from `10.30.2.200-10.30.2.220`.
-7. Traefik gets a MetalLB IP, normally `10.30.2.200`.
+1. PiKVM/Ansible writes node LAN config before first boot.
+2. Node boots with static IP and sshd.
+3. Ansible applies sysctls and kernel module config.
+4. Ansible configures keepalived API VIP.
+5. Kubeadm initializes or joins control plane nodes.
+6. Cilium handles pod networking and kube-proxy replacement.
+7. MetalLB advertises LoadBalancer IPs from `10.30.2.200-10.30.2.220`.
+8. Traefik gets a MetalLB IP, normally `10.30.2.200`.
 
 Required sysctls:
 
@@ -91,4 +76,4 @@ fs.inotify.max_user_instances=512
 
 - Confirm final pod CIDR: `10.244.0.0/16` or `172.16.0.0/12`.
 - Confirm actual router DHCP pool excludes `.100-.103` and `.200-.220`.
-- Confirm NIC interface naming, or leave `NODE_IFACE` unset and trust auto-detection like a gambler with root access.
+- Confirm NIC interface naming for the Phase 2 networkd file.
