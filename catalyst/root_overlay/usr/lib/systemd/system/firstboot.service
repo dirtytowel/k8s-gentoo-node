@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply k8s node identity once
+ConditionPathExists=/boot/node-config
+ConditionPathExists=!/etc/firstboot-done
+Before=systemd-networkd.service sshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/firstboot
+
+[Install]
+WantedBy=multi-user.target

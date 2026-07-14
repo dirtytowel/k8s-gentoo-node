@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+. /boot/node-config
+: "${NODE_IP:?}" "${NODE_GW:?}" "${NODE_HOSTNAME:?}"
+iface="${NODE_IFACE:-$(ls /sys/class/net|grep -v '^lo$'|head -n1)}"
+mkdir -p /etc/systemd/network
+cat >/etc/systemd/network/10-${iface}.network <<EOF
+[Match]
+Name=${iface}
+
+[Network]
+Address=${NODE_IP}/24
+Gateway=${NODE_GW}
+DNS=${NODE_GW}
+EOF
+printf '%s\n' "$NODE_HOSTNAME" >/etc/hostname
+touch /etc/firstboot-done
+systemctl mask firstboot.service

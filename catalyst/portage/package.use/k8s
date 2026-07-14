@@ -1,0 +1,3 @@
+app-containers/containerd btrfs seccomp
+net-fs/nfs-utils nfsv4
+sys-apps/systemd resolved networkd
