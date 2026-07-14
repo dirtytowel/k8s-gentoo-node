@@ -19,4 +19,6 @@ RUN mkdir -p /var/tmp/catalyst/builds/default \
 # Copy default configuration templates into place
 RUN test -f /etc/catalyst/catalyst.conf
 
+RUN printf 'export MAKEOPTS="-j$(nproc) -l$(nproc)"\nexport NICENESS="19"\n' >/etc/catalyst/catalystrc
+
 WORKDIR /var/tmp/catalyst

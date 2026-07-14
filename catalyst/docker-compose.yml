@@ -1,0 +1,10 @@
+services:
+  catalyst:
+    build: .
+    image: gentoo-k8s-catalyst
+    privileged: true
+    volumes:
+      - .:/catalyst:ro
+      - ./work:/var/tmp/catalyst
+    working_dir: /var/tmp/catalyst
+    command: sh /catalyst/build-stage4.sh
