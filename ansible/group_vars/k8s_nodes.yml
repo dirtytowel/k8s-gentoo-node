@@ -1,0 +1,6 @@
+cluster_name: gentoo-k8s
+api_vip: 10.30.2.100
+vagrant_api_vip: 192.168.56.100
+pod_cidr: 10.244.0.0/16
+service_cidr: 10.96.0.0/12
+metallb_pool: 10.30.2.200-10.30.2.220

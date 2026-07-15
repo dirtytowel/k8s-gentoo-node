@@ -1,1 +1,3 @@
 catalyst/work/
+.vagrant/
+vagrant/.vagrant/
