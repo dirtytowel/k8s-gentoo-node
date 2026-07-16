@@ -5,3 +5,4 @@ vagrant/build/
 vagrant/*.box
 vagrant/vmlinuz
 vagrant/initramfs
+ansible/vagrant/

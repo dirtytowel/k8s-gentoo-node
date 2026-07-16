@@ -1,0 +1,4 @@
+- hosts: k8s_nodes
+  roles:
+    - containerd
+    - keepalived
