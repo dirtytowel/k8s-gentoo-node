@@ -8,7 +8,6 @@ compression_mode: xz
 decompressor_search_order: xz
 snapshot_treeish: master
 portage_confdir: /catalyst/portage
-stage4/root_overlay: /catalyst/root_overlay
 stage4/packages:
 	sys-kernel/gentoo-kernel
 	sys-apps/systemd

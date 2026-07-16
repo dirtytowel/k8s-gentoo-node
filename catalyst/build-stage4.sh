@@ -20,7 +20,7 @@ fetch_stage3(){
 sync_repo(){
 	if [ -d "$repo" ]; then
 		log 'updating gentoo repo'
-		git -C "$repo" fetch --depth=1 origin master:refs/heads/master
+		git -C "$repo" fetch --depth=1 origin +master:refs/heads/master
 	else
 		log 'cloning gentoo repo'
 		git clone --bare --depth=1 https://anongit.gentoo.org/git/repo/gentoo.git "$repo"

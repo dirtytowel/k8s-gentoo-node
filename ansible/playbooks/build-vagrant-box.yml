@@ -1,0 +1,83 @@
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    stage4: ../catalyst/work/builds/default/stage4-amd64-k8s.tar.xz
+    disk_gb: 20
+    build_dir: ../vagrant/build
+    box_out: ../vagrant/k8s-node-ops-stage4.box
+    raw: "{{ build_dir }}/root.img"
+    qcow: "{{ build_dir }}/box.img"
+    mnt: "{{ build_dir }}/mnt"
+    vagrant_pubkey: |
+      ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
+      ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN1YdxBpNlzxDqfJyw/QKow1F+wvG9hXGoqiysfJOn5Y vagrant insecure public key
+  tasks:
+    - name: refuse non-root
+      ansible.builtin.command: id -u
+      register: uid
+      changed_when: false
+      failed_when: uid.stdout != '0'
+
+    - name: check tools
+      ansible.builtin.shell: "command -v {{ item }}"
+      changed_when: false
+      loop: [qemu-img, mkfs.ext4, tar]
+
+    - name: clean old build
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: ["{{ build_dir }}", "{{ box_out }}", ../vagrant/vmlinuz, ../vagrant/initramfs]
+
+    - name: create build dirs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+      loop: ["{{ mnt }}"]
+
+    - name: create rootfs image
+      ansible.builtin.command: "{{ item }}"
+      loop:
+        - "qemu-img create -f raw {{ raw }} {{ disk_gb }}G"
+        - "mkfs.ext4 -F {{ raw }}"
+
+    - block:
+        - name: mount rootfs
+          ansible.builtin.command: "mount -o loop {{ raw }} {{ mnt }}"
+
+        - name: unpack stage4
+          ansible.builtin.command: "tar --xattrs --xattrs-include='*.*' --numeric-owner -xpf {{ stage4 }} -C {{ mnt }}"
+
+        - name: create vagrant config dirs
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: directory
+            mode: "{{ item.mode | default(omit) }}"
+          loop:
+            - {path: "{{ mnt }}/root/.ssh", mode: '0700'}
+            - {path: "{{ mnt }}/etc/systemd/network"}
+
+        - name: vagrant minimum config
+          ansible.builtin.copy:
+            dest: "{{ item.dest }}"
+            content: "{{ item.content }}"
+            mode: "{{ item.mode | default('0644') }}"
+          loop:
+            - {dest: "{{ mnt }}/etc/systemd/network/80-vagrant-dhcp.network", content: "[Match]\nName=en* eth*\n\n[Network]\nDHCP=yes\n"}
+            - {dest: "{{ mnt }}/root/.ssh/authorized_keys", content: "{{ vagrant_pubkey }}", mode: '0600'}
+
+        - name: copy boot files
+          ansible.builtin.shell: "cp {{ mnt }}/boot/kernel-* ../vagrant/vmlinuz && cp {{ mnt }}/boot/initramfs-*.img ../vagrant/initramfs"
+      always:
+        - name: unmount rootfs
+          ansible.builtin.command: "umount {{ mnt }}"
+          failed_when: false
+          changed_when: false
+
+    - name: package box
+      ansible.builtin.shell: "qemu-img convert -f raw -O qcow2 {{ raw }} {{ qcow }} && printf '%s\n' '{\"provider\":\"libvirt\",\"format\":\"qcow2\",\"virtual_size\":{{ disk_gb }}}' > {{ build_dir }}/metadata.json && tar czf {{ box_out }} -C {{ build_dir }} metadata.json box.img"
+
+    - name: print box path
+      ansible.builtin.debug:
+        msg: "{{ box_out }}"
