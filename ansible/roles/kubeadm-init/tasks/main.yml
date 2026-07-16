@@ -1,0 +1,117 @@
+- name: validate kubeadm variables
+  ansible.builtin.assert:
+    that:
+      - api_vip is defined
+      - cluster_name is defined
+      - pod_cidr is defined
+      - service_cidr is defined
+      - kubeadm_node_ip | length > 0
+
+- name: check kubeadm
+  ansible.builtin.command: kubeadm version -o short
+  changed_when: false
+
+- name: check local control plane state
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_admin_conf
+
+- name: check peer control plane state
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['k8s_nodes'] | difference([inventory_hostname]) }}"
+  register: kubeadm_peer_state
+
+- name: record peer control plane state
+  ansible.builtin.set_fact:
+    kubeadm_peer_state_exists: "{{ kubeadm_peer_state.results | selectattr('stat.exists') | list | length > 0 }}"
+
+- name: check cluster api
+  ansible.builtin.uri:
+    url: "https://{{ api_vip }}:{{ kubeadm_api_port }}/readyz"
+    validate_certs: false
+    timeout: 2
+  register: kubeadm_api
+  changed_when: false
+  failed_when: false
+
+- name: decide whether to initialize
+  ansible.builtin.set_fact:
+    kubeadm_init_required: "{{ (not kubeadm_admin_conf.stat.exists) and (not kubeadm_peer_state_exists) and (kubeadm_api.status | default(0) != 200) }}"
+
+- name: refuse initialization over existing cluster state
+  ansible.builtin.assert:
+    that: kubeadm_api.status | default(0) == 200
+    fail_msg: Existing control plane state found but the cluster API is unavailable.
+  when:
+    - not kubeadm_admin_conf.stat.exists
+    - kubeadm_peer_state_exists
+
+- name: create kubernetes config dir
+  ansible.builtin.file:
+    path: /etc/kubernetes
+    state: directory
+    mode: '0755'
+  when: kubeadm_init_required
+
+- name: write kubeadm init config
+  ansible.builtin.template:
+    src: kubeadm-init.yaml.j2
+    dest: "{{ kubeadm_config }}"
+    mode: '0600'
+  when: kubeadm_init_required
+
+- name: validate kubeadm init config
+  ansible.builtin.command: "kubeadm config validate --config {{ kubeadm_config }}"
+  changed_when: false
+  when: kubeadm_init_required
+
+- name: find etcd package keep files
+  ansible.builtin.find:
+    paths: /var/lib/etcd
+    patterns: .keep_*
+    file_type: file
+    hidden: true
+  register: kubeadm_etcd_keep_files
+  when: kubeadm_init_required
+
+- name: remove etcd package keep files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ kubeadm_etcd_keep_files.files }}"
+  when: kubeadm_init_required
+
+- name: initialize cluster
+  ansible.builtin.command: "kubeadm init --config {{ kubeadm_config }} --skip-token-print"
+  args:
+    creates: /etc/kubernetes/admin.conf
+  when: kubeadm_init_required
+
+- name: wait for cluster api
+  ansible.builtin.uri:
+    url: "https://{{ api_vip }}:{{ kubeadm_api_port }}/readyz"
+    validate_certs: false
+    timeout: 2
+  register: kubeadm_api_ready
+  changed_when: false
+  retries: 30
+  delay: 2
+  until: kubeadm_api_ready.status == 200
+  when: kubeadm_init_required
+
+- name: create root kube config dir
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+    mode: '0700'
+  when: kubeadm_admin_conf.stat.exists or kubeadm_init_required
+
+- name: install root kube config
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: true
+    mode: '0600'
+  when: kubeadm_admin_conf.stat.exists or kubeadm_init_required

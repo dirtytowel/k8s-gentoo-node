@@ -1,0 +1,31 @@
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "{{ kubeadm_node_ip }}"
+  bindPort: {{ kubeadm_api_port }}
+nodeRegistration:
+  criSocket: "{{ kubeadm_cri_socket }}"
+  name: "{{ inventory_hostname }}"
+  kubeletExtraArgs:
+    - name: node-ip
+      value: "{{ kubeadm_node_ip }}"
+{% if kubeadm_skip_phases %}
+skipPhases:
+{% for phase in kubeadm_skip_phases %}
+  - "{{ phase }}"
+{% endfor %}
+{% endif %}
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+clusterName: "{{ cluster_name }}"
+controlPlaneEndpoint: "{{ api_vip }}:{{ kubeadm_api_port }}"
+apiServer:
+  certSANs:
+    - "{{ api_vip }}"
+    - "{{ kubeadm_node_ip }}"
+    - "{{ inventory_hostname }}"
+networking:
+  dnsDomain: cluster.local
+  podSubnet: "{{ pod_cidr }}"
+  serviceSubnet: "{{ service_cidr }}"

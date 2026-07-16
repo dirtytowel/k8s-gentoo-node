@@ -1,4 +1,10 @@
 - hosts: k8s_nodes
   roles:
     - containerd
+    - role: kubelet
+      tags: kubelet
     - keepalived
+
+- hosts: k8s-cp1
+  roles:
+    - kubeadm-init

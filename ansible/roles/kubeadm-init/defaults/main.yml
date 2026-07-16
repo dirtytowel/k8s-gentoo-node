@@ -1,0 +1,5 @@
+kubeadm_api_port: 6443
+kubeadm_cri_socket: unix:///run/containerd/containerd.sock
+kubeadm_node_ip: "{{ ansible_host }}"
+kubeadm_config: /etc/kubernetes/kubeadm-init.yaml
+kubeadm_skip_phases: []

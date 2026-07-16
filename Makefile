@@ -1,10 +1,10 @@
-.PHONY: stage4 box vagrant clean-vagrant clean-box-cache clean-box
+.PHONY: stage4 box vagrant clean-vagrant clean-box-cache clean-box clean
 
 stage4:
-	cd catalyst && docker compose up
+	cd catalyst && docker compose run --rm --build catalyst
 
 box: stage4 clean-box
-	cd ansible && sudo ansible-playbook playbooks/build-vagrant-box.yml
+	cd ansible && ansible-playbook playbooks/build-vagrant-box.yml
 
 vagrant:
 	vagrant up --provider=libvirt
@@ -19,3 +19,7 @@ clean-box:
 
 clean-box-cache:
 	virsh -c qemu:///system vol-list default | awk '/k8s-node-ops-stage4_vagrant_box_image_/ {print $$1}' | xargs -r -I{} virsh -c qemu:///system vol-delete {} --pool default
+
+clean: clean-box
+	rm -rf catalyst/work .vagrant vagrant/.vagrant vagrant/build ansible/vagrant /tmp/ansible_vagrant_box_*.tmp
+	rm -f vagrant/*.box vagrant/vmlinuz vagrant/initramfs

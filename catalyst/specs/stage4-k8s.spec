@@ -18,6 +18,9 @@ stage4/packages:
 	sys-cluster/kubectl
 	net-misc/openssh
 	sys-cluster/keepalived
+	net-firewall/conntrack-tools
+	sys-apps/ethtool
+	net-misc/socat
 	net-fs/nfs-utils
 	dev-db/etcd
 	sys-boot/grub

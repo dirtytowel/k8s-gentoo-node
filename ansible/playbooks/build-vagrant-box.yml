@@ -6,6 +6,7 @@
     disk_gb: 20
     artifact_dir: "{{ playbook_dir }}/../../vagrant"
     box_out: "{{ artifact_dir }}/k8s-node-ops-stage4.box"
+    helper: "{{ playbook_dir }}/files/build-rootfs.sh"
     vagrant_pubkey: |
       ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
       ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN1YdxBpNlzxDqfJyw/QKow1F+wvG9hXGoqiysfJOn5Y vagrant insecure public key
@@ -25,22 +26,20 @@
       sync-openpgp-key-path = /usr/share/openpgp-keys/gentoo-release.asc
       sync-openpgp-key-refresh = false-nowarn
   tasks:
-    - name: refuse non-root
-      ansible.builtin.command: id -u
-      register: uid
-      changed_when: false
-      failed_when: uid.stdout != '0'
-
     - name: check tools
       ansible.builtin.shell: "command -v {{ item }}"
       changed_when: false
-      loop: [qemu-img, mkfs.ext4, tar, systemctl]
+      loop: [qemu-img, mke2fs, tar, unshare, newuidmap, newgidmap, truncate]
 
     - name: check stage4
       ansible.builtin.stat:
         path: "{{ stage4 }}"
       register: stage4_stat
-      failed_when: not stage4_stat.stat.exists
+
+    - name: require stage4
+      ansible.builtin.assert:
+        that: stage4_stat.stat.exists
+        fail_msg: "Missing {{ stage4 }}. Run 'make stage4' first."
 
     - name: create temp build dir
       ansible.builtin.tempfile:
@@ -55,7 +54,13 @@
         build_dir: "{{ build_tmp.path }}"
         raw: "{{ build_tmp.path }}/root.img"
         qcow: "{{ build_tmp.path }}/box.img"
-        mnt: "{{ build_tmp.path }}/mnt"
+        overlay_dir: "{{ build_tmp.path }}/overlay"
+
+    - name: create artifact directory
+      ansible.builtin.file:
+        path: "{{ artifact_dir }}"
+        state: directory
+        mode: '0755'
 
     - name: clean old build
       ansible.builtin.file:
@@ -63,62 +68,45 @@
         state: absent
       loop: ["{{ box_out }}", "{{ artifact_dir }}/vmlinuz", "{{ artifact_dir }}/initramfs"]
 
-    - name: create build dirs
+    - name: create overlay dirs
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: "{{ item.path }}"
         state: directory
-      loop: ["{{ mnt }}"]
-
-    - name: create rootfs image
-      ansible.builtin.command: "{{ item }}"
+        mode: "{{ item.mode | default(omit) }}"
       loop:
-        - "qemu-img create -f raw {{ raw }} {{ disk_gb }}G"
-        - "mkfs.ext4 -F {{ raw }}"
+        - {path: "{{ overlay_dir }}/root/.ssh", mode: '0700'}
+        - {path: "{{ overlay_dir }}/etc/systemd/network"}
+        - {path: "{{ overlay_dir }}/etc/portage/repos.conf"}
+        - {path: "{{ overlay_dir }}/etc/systemd/system/multi-user.target.wants"}
 
-    - block:
-        - name: mount rootfs
-          ansible.builtin.command: "mount -o loop {{ raw }} {{ mnt }}"
+    - name: write overlay config
+      ansible.builtin.copy:
+        dest: "{{ item.dest }}"
+        content: "{{ item.content }}"
+        mode: "{{ item.mode | default('0644') }}"
+      loop:
+        - {dest: "{{ overlay_dir }}/etc/systemd/network/80-vagrant-dhcp.network", content: "[Match]\nName=en* eth*\n\n[Network]\nDHCP=yes\n"}
+        - {dest: "{{ overlay_dir }}/root/.ssh/authorized_keys", content: "{{ vagrant_pubkey }}", mode: '0600'}
+        - {dest: "{{ overlay_dir }}/etc/portage/repos.conf/gentoo.conf", content: "{{ gentoo_repos_conf }}"}
 
-        - name: unpack stage4
-          ansible.builtin.command: "tar --xattrs --xattrs-include='*.*' --numeric-owner -xpf {{ stage4 }} -C {{ mnt }}"
+    - name: enable overlay services
+      ansible.builtin.file:
+        src: "/usr/lib/systemd/system/{{ item }}.service"
+        dest: "{{ overlay_dir }}/etc/systemd/system/multi-user.target.wants/{{ item }}.service"
+        state: link
+        force: true
+        follow: false
+      loop: [sshd, systemd-networkd, systemd-resolved, containerd, kubelet, keepalived]
 
-        - name: create vagrant config dirs
-          ansible.builtin.file:
-            path: "{{ item.path }}"
-            state: directory
-            mode: "{{ item.mode | default(omit) }}"
-          loop:
-            - {path: "{{ mnt }}/root/.ssh", mode: '0700'}
-            - {path: "{{ mnt }}/etc/systemd/network"}
-            - {path: "{{ mnt }}/etc/portage/repos.conf"}
+    - name: link resolv.conf
+      ansible.builtin.file:
+        src: /run/systemd/resolve/stub-resolv.conf
+        dest: "{{ overlay_dir }}/etc/resolv.conf"
+        state: link
+        force: true
 
-        - name: vagrant minimum config
-          ansible.builtin.copy:
-            dest: "{{ item.dest }}"
-            content: "{{ item.content }}"
-            mode: "{{ item.mode | default('0644') }}"
-          loop:
-            - {dest: "{{ mnt }}/etc/systemd/network/80-vagrant-dhcp.network", content: "[Match]\nName=en* eth*\n\n[Network]\nDHCP=yes\n"}
-            - {dest: "{{ mnt }}/root/.ssh/authorized_keys", content: "{{ vagrant_pubkey }}", mode: '0600'}
-            - {dest: "{{ mnt }}/etc/portage/repos.conf/gentoo.conf", content: "{{ gentoo_repos_conf }}"}
-
-        # - name: enable services
-        #   ansible.builtin.command: "systemctl --root={{ mnt }} enable sshd systemd-networkd systemd-resolved containerd kubelet keepalived"
-
-        - name: link resolv.conf
-          ansible.builtin.file:
-            src: /run/systemd/resolve/stub-resolv.conf
-            dest: "{{ mnt }}/etc/resolv.conf"
-            state: link
-            force: true
-
-        - name: copy boot files
-          ansible.builtin.shell: "cp {{ mnt }}/boot/kernel-* {{ artifact_dir }}/vmlinuz && cp {{ mnt }}/boot/initramfs-*.img {{ artifact_dir }}/initramfs"
-      always:
-        - name: unmount rootfs
-          ansible.builtin.command: "umount {{ mnt }}"
-          failed_when: false
-          changed_when: false
+    - name: build rootfs image
+      ansible.builtin.command: "{{ helper }} {{ stage4 }} {{ build_dir }} {{ disk_gb }} {{ artifact_dir }}"
 
     - name: package box
       ansible.builtin.shell: "qemu-img convert -f raw -O qcow2 {{ raw }} {{ qcow }} && printf '%s\n' '{\"provider\":\"libvirt\",\"format\":\"qcow2\",\"virtual_size\":{{ disk_gb }}}' > {{ build_dir }}/metadata.json && tar czf {{ box_out }} -C {{ build_dir }} metadata.json box.img"

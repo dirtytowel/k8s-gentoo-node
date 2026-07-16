@@ -1,0 +1,23 @@
+- name: create kubelet dirs
+  ansible.builtin.file:
+    path: /var/lib/kubelet
+    state: directory
+    mode: '0755'
+
+- name: configure kubelet service
+  ansible.builtin.template:
+    src: kubelet.service.j2
+    dest: /etc/systemd/system/kubelet.service
+    mode: '0644'
+  notify: reload systemd
+
+- name: remove kubelet drop-in
+  ansible.builtin.file:
+    path: /etc/systemd/system/kubelet.service.d
+    state: absent
+  notify: reload systemd
+
+- name: enable kubelet
+  ansible.builtin.systemd_service:
+    name: kubelet
+    enabled: true
