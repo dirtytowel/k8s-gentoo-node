@@ -1,0 +1,31 @@
+global_defs {
+  router_id {{ inventory_hostname }}
+}
+
+vrrp_script check_apiserver {
+  script "/etc/keepalived/check_apiserver.sh"
+  interval 2
+  fall 2
+  rise 2
+}
+
+vrrp_instance VI_1 {
+  state BACKUP
+  interface {{ keepalived_interface }}
+  virtual_router_id 51
+  priority {{ keepalived_priority }}
+  advert_int 1
+
+  authentication {
+    auth_type PASS
+    auth_pass k8s
+  }
+
+  virtual_ipaddress {
+    {{ api_vip }}/24 dev {{ keepalived_interface }}
+  }
+
+  track_script {
+    check_apiserver
+  }
+}

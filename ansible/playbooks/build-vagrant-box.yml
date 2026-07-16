@@ -2,16 +2,28 @@
   connection: local
   gather_facts: false
   vars:
-    stage4: ../catalyst/work/builds/default/stage4-amd64-k8s.tar.xz
+    stage4: "{{ playbook_dir }}/../../catalyst/work/builds/default/stage4-amd64-k8s.tar.xz"
     disk_gb: 20
-    build_dir: ../vagrant/build
-    box_out: ../vagrant/k8s-node-ops-stage4.box
-    raw: "{{ build_dir }}/root.img"
-    qcow: "{{ build_dir }}/box.img"
-    mnt: "{{ build_dir }}/mnt"
+    artifact_dir: "{{ playbook_dir }}/../../vagrant"
+    box_out: "{{ artifact_dir }}/k8s-node-ops-stage4.box"
     vagrant_pubkey: |
       ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
       ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN1YdxBpNlzxDqfJyw/QKow1F+wvG9hXGoqiysfJOn5Y vagrant insecure public key
+    gentoo_repos_conf: |
+      [DEFAULT]
+      main-repo = gentoo
+
+      [gentoo]
+      location = /var/db/repos/gentoo
+      sync-type = rsync
+      sync-uri = rsync://rsync.gentoo.org/gentoo-portage
+      auto-sync = yes
+      sync-rsync-verify-jobs = 1
+      sync-rsync-verify-metamanifest = yes
+      sync-rsync-verify-max-age = 3
+      sync-openpgp-key-package = sec-keys/openpgp-keys-gentoo-release
+      sync-openpgp-key-path = /usr/share/openpgp-keys/gentoo-release.asc
+      sync-openpgp-key-refresh = false-nowarn
   tasks:
     - name: refuse non-root
       ansible.builtin.command: id -u
@@ -22,13 +34,34 @@
     - name: check tools
       ansible.builtin.shell: "command -v {{ item }}"
       changed_when: false
-      loop: [qemu-img, mkfs.ext4, tar]
+      loop: [qemu-img, mkfs.ext4, tar, systemctl]
+
+    - name: check stage4
+      ansible.builtin.stat:
+        path: "{{ stage4 }}"
+      register: stage4_stat
+      failed_when: not stage4_stat.stat.exists
+
+    - name: create temp build dir
+      ansible.builtin.tempfile:
+        state: directory
+        path: /tmp
+        prefix: ansible_vagrant_box_
+        suffix: .tmp
+      register: build_tmp
+
+    - name: set build paths
+      ansible.builtin.set_fact:
+        build_dir: "{{ build_tmp.path }}"
+        raw: "{{ build_tmp.path }}/root.img"
+        qcow: "{{ build_tmp.path }}/box.img"
+        mnt: "{{ build_tmp.path }}/mnt"
 
     - name: clean old build
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
-      loop: ["{{ build_dir }}", "{{ box_out }}", ../vagrant/vmlinuz, ../vagrant/initramfs]
+      loop: ["{{ box_out }}", "{{ artifact_dir }}/vmlinuz", "{{ artifact_dir }}/initramfs"]
 
     - name: create build dirs
       ansible.builtin.file:
@@ -57,6 +90,7 @@
           loop:
             - {path: "{{ mnt }}/root/.ssh", mode: '0700'}
             - {path: "{{ mnt }}/etc/systemd/network"}
+            - {path: "{{ mnt }}/etc/portage/repos.conf"}
 
         - name: vagrant minimum config
           ansible.builtin.copy:
@@ -66,9 +100,20 @@
           loop:
             - {dest: "{{ mnt }}/etc/systemd/network/80-vagrant-dhcp.network", content: "[Match]\nName=en* eth*\n\n[Network]\nDHCP=yes\n"}
             - {dest: "{{ mnt }}/root/.ssh/authorized_keys", content: "{{ vagrant_pubkey }}", mode: '0600'}
+            - {dest: "{{ mnt }}/etc/portage/repos.conf/gentoo.conf", content: "{{ gentoo_repos_conf }}"}
+
+        # - name: enable services
+        #   ansible.builtin.command: "systemctl --root={{ mnt }} enable sshd systemd-networkd systemd-resolved containerd kubelet keepalived"
+
+        - name: link resolv.conf
+          ansible.builtin.file:
+            src: /run/systemd/resolve/stub-resolv.conf
+            dest: "{{ mnt }}/etc/resolv.conf"
+            state: link
+            force: true
 
         - name: copy boot files
-          ansible.builtin.shell: "cp {{ mnt }}/boot/kernel-* ../vagrant/vmlinuz && cp {{ mnt }}/boot/initramfs-*.img ../vagrant/initramfs"
+          ansible.builtin.shell: "cp {{ mnt }}/boot/kernel-* {{ artifact_dir }}/vmlinuz && cp {{ mnt }}/boot/initramfs-*.img {{ artifact_dir }}/initramfs"
       always:
         - name: unmount rootfs
           ansible.builtin.command: "umount {{ mnt }}"
@@ -77,6 +122,11 @@
 
     - name: package box
       ansible.builtin.shell: "qemu-img convert -f raw -O qcow2 {{ raw }} {{ qcow }} && printf '%s\n' '{\"provider\":\"libvirt\",\"format\":\"qcow2\",\"virtual_size\":{{ disk_gb }}}' > {{ build_dir }}/metadata.json && tar czf {{ box_out }} -C {{ build_dir }} metadata.json box.img"
+
+    - name: clean temp build
+      ansible.builtin.file:
+        path: "{{ build_dir }}"
+        state: absent
 
     - name: print box path
       ansible.builtin.debug:

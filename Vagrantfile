@@ -1,6 +1,6 @@
 Vagrant.configure("2") do |config|
   config.vm.box = "k8s-node-ops-stage4"
-  config.vm.box_url = "file://#{File.expand_path("k8s-node-ops-stage4.box", __dir__)}"
+  config.vm.box_url = "file://#{File.expand_path("vagrant/k8s-node-ops-stage4.box", __dir__)}"
   config.ssh.username = "root"
   config.ssh.insert_key = false
   config.ssh.sudo_command = "%c"
@@ -13,15 +13,15 @@ Vagrant.configure("2") do |config|
       node.vm.provider "libvirt" do |lv|
         lv.memory = 2048
         lv.cpus = 2
-        lv.kernel = File.expand_path("vmlinuz", __dir__)
-        lv.initrd = File.expand_path("initramfs", __dir__)
+        lv.kernel = File.expand_path("vagrant/vmlinuz", __dir__)
+        lv.initrd = File.expand_path("vagrant/initramfs", __dir__)
         lv.cmd_line = "root=/dev/vda rw console=ttyS0 systemd.hostname=#{name}"
       end
 
       # if name == "k8s-cp3"
       #   node.vm.provision "ansible" do |ansible|
-      #     ansible.playbook = "../ansible/site.yml"
-      #     ansible.inventory_path = "../ansible/inventory/vagrant.yml"
+      #     ansible.playbook = "ansible/site.yml"
+      #     ansible.inventory_path = "ansible/inventory/vagrant.yml"
       #     ansible.limit = "k8s_nodes"
       #   end
       # end

@@ -1,0 +1,26 @@
+- name: create keepalived dir
+  ansible.builtin.file:
+    path: /etc/keepalived
+    state: directory
+
+- name: detect vip interface
+  ansible.builtin.command: "ip -o route get {{ api_vip }}"
+  register: vip_route
+  changed_when: false
+
+- name: set vip interface
+  ansible.builtin.set_fact:
+    keepalived_interface: "{{ vip_route.stdout | regex_search('dev ([^ ]+)', '\\1') | first }}"
+
+- name: write apiserver check
+  ansible.builtin.template:
+    src: check_apiserver.sh.j2
+    dest: /etc/keepalived/check_apiserver.sh
+    mode: '0755'
+  notify: restart keepalived
+
+- name: write keepalived config
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+  notify: restart keepalived

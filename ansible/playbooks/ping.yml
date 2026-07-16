@@ -1,0 +1,4 @@
+- hosts: k8s_nodes
+  gather_facts: false
+  tasks:
+    - ansible.builtin.ping:
