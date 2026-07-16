@@ -1,7 +1,7 @@
 all:
   vars:
-    ansible_user: vagrant
-    ansible_ssh_private_key_file: ../vagrant/.vagrant/machines/{{ inventory_hostname }}/virtualbox/private_key
+    ansible_user: root
+    ansible_ssh_private_key_file: ../vagrant/build/id_ed25519
   children:
     k8s_nodes:
       hosts:

@@ -1,3 +1,7 @@
 catalyst/work/
 .vagrant/
 vagrant/.vagrant/
+vagrant/build/
+vagrant/*.box
+vagrant/vmlinuz
+vagrant/initramfs
