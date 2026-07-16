@@ -3,3 +3,5 @@ pod_cidr: 10.244.0.0/16
 service_cidr: 10.96.0.0/12
 calico_version: v3.29.3
 metallb_pool: 10.30.2.200-10.30.2.220
+kubeadm_skip_phases:
+  - addon/kube-proxy

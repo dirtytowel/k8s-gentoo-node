@@ -4,13 +4,13 @@
     state: directory
 
 - name: detect vip interface
-  ansible.builtin.command: "ip -o route get {{ api_vip }}"
-  register: vip_route
+  ansible.builtin.command: "ip -o -4 addr show to {{ ansible_host }}/32"
+  register: node_address
   changed_when: false
 
 - name: set vip interface
   ansible.builtin.set_fact:
-    keepalived_interface: "{{ vip_route.stdout | regex_search('dev ([^ ]+)', '\\1') | first }}"
+    keepalived_interface: "{{ node_address.stdout | regex_search('^[0-9]+: ([^ ]+)', '\\1') | first }}"
 
 - name: write apiserver check
   ansible.builtin.template:
