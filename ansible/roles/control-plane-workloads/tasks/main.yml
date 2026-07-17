@@ -1,0 +1,11 @@
+- name: remove control plane scheduling taints
+  ansible.builtin.command:
+    argv: [kubectl, taint, node, "{{ inventory_hostname }}", "{{ item }}:NoSchedule-"]
+  loop: [node-role.kubernetes.io/control-plane, node-role.kubernetes.io/master]
+  register: control_plane_taint
+  changed_when: "'untainted' in control_plane_taint.stdout"
+  failed_when: control_plane_taint.rc != 0 and 'not found' not in control_plane_taint.stderr
+
+- name: wait for ready nodes
+  ansible.builtin.command: kubectl wait node {{ inventory_hostname }} --for=condition=Ready --timeout=2m
+  changed_when: false

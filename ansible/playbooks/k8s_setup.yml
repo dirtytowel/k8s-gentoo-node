@@ -29,3 +29,9 @@
   roles:
     - role: cilium
       run_once: true
+
+- hosts: k8s_nodes
+  gather_facts: false
+  roles:
+    - role: control-plane-workloads
+      tags: control-plane-workloads
