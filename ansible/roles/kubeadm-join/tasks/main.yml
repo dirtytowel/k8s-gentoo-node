@@ -1,0 +1,89 @@
+- name: validate kubeadm join variables
+  ansible.builtin.assert:
+    that:
+      - api_vip is defined
+      - kubeadm_node_ip | length > 0
+
+- name: check local membership state
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubeadm_kubelet_conf
+
+- name: join control plane
+  when: not kubeadm_kubelet_conf.stat.exists
+  block:
+    - name: require join credentials
+      ansible.builtin.assert:
+        that: hostvars['localhost'].kubeadm_join_credentials is defined
+        fail_msg: Join credentials were not prepared.
+
+    - name: check partial kubeadm state
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/kubernetes/pki/ca.key
+        - /etc/kubernetes/manifests/kube-apiserver.yaml
+        - /var/lib/etcd/member
+      register: kubeadm_partial_state
+
+    - name: refuse partial kubeadm state
+      ansible.builtin.assert:
+        that: kubeadm_partial_state.results | selectattr('stat.exists') | list | length == 0
+        fail_msg: Partial kubeadm state exists; refusing to overwrite it.
+
+    - name: find etcd package keep files
+      ansible.builtin.find:
+        paths: /var/lib/etcd
+        patterns: .keep_*
+        file_type: file
+        hidden: true
+      register: kubeadm_etcd_keep_files
+
+    - name: remove etcd package keep files
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ kubeadm_etcd_keep_files.files }}"
+
+    - name: create kubeadm config dir
+      ansible.builtin.file:
+        path: "{{ kubeadm_join_config | dirname }}"
+        state: directory
+        mode: '0700'
+
+    - name: write kubeadm join config
+      ansible.builtin.template:
+        src: kubeadm-join.yaml.j2
+        dest: "{{ kubeadm_join_config }}"
+        mode: '0600'
+      no_log: true
+
+    - name: join control plane node
+      ansible.builtin.command: "kubeadm join --config {{ kubeadm_join_config }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+
+    - name: wait for node registration
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig=/etc/kubernetes/admin.conf, get, node, "{{ inventory_hostname }}", -o, name]
+      delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
+      register: kubeadm_registered_node
+      changed_when: false
+      retries: 30
+      delay: 2
+      until: kubeadm_registered_node.rc == 0
+
+    - name: wait for etcd member
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig=/etc/kubernetes/admin.conf, -n, kube-system, get, pod, "etcd-{{ inventory_hostname }}", -o, 'jsonpath={.status.phase}']
+      delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
+      register: kubeadm_etcd_pod
+      changed_when: false
+      retries: 30
+      delay: 2
+      until: kubeadm_etcd_pod.stdout == 'Running'
+  always:
+    - name: remove kubeadm join config
+      ansible.builtin.file:
+        path: "{{ kubeadm_join_config }}"
+        state: absent

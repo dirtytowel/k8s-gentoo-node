@@ -1,0 +1,1 @@
+kubeadm_join_token_ttl: 30m

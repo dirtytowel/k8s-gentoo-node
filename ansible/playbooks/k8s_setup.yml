@@ -1,10 +1,19 @@
 - hosts: k8s_nodes
   roles:
     - containerd
-    - role: kubelet
-      tags: kubelet
+    - kubelet
     - keepalived
 
-- hosts: k8s-cp1
+- hosts: k8s_nodes
   roles:
-    - kubeadm-init
+    - role: kubeadm-init
+      run_once: true
+
+- hosts: k8s_nodes
+  roles:
+    - kubeadm-join-credentials
+
+- hosts: k8s_nodes
+  serial: 1
+  roles:
+    - kubeadm-join
