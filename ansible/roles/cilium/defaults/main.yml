@@ -1,0 +1,3 @@
+cilium_chart: oci://quay.io/cilium/charts/cilium
+cilium_version: 1.19.6
+cilium_timeout: 10m0s

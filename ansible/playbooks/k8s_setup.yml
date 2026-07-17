@@ -17,3 +17,15 @@
   serial: 1
   roles:
     - kubeadm-join
+
+- hosts: k8s_nodes
+  gather_facts: false
+  roles:
+    - role: kubectl-config
+      tags: kubectl-config
+
+- hosts: k8s_nodes
+  gather_facts: false
+  roles:
+    - role: cilium
+      run_once: true

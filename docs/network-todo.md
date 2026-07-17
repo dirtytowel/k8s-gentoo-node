@@ -61,6 +61,8 @@ Order of operations:
 6. Cilium handles pod networking and kube-proxy replacement.
 7. MetalLB advertises LoadBalancer IPs from `10.30.2.200-10.30.2.220`.
 8. Traefik gets a MetalLB IP, normally `10.30.2.200`.
+9. OpenWrt forwards TCP `80` and `443` from one public static IP to `10.30.2.200`.
+10. Public DNS points application hostnames at that public static IP.
 
 Required sysctls:
 
@@ -72,8 +74,47 @@ fs.inotify.max_user_watches=524288
 fs.inotify.max_user_instances=512
 ```
 
+## Public ingress
+
+The ISP provides an on-link public static subnet in addition to the normal dynamic WAN address. Public application traffic does not use Cilium Egress Gateway and the public subnet is not part of the MetalLB pool.
+
+```text
+Internet
+    -> public DNS
+    -> public static IP on OpenWrt WAN
+    -> OpenWrt firewall4 DNAT for TCP 80/443
+    -> 10.30.2.200 MetalLB VIP
+    -> Traefik
+    -> host/SNI routing to Kubernetes Services
+```
+
+OpenWrt owns one usable address from the public subnet as a secondary WAN address and responds to ARP for it. `firewall4`/nftables permits and DNATs only TCP `80` and `443` to Traefik. UFW is not used on OpenWrt or the Kubernetes nodes for this path.
+
+Multiple public DNS records can point to the same public IP. Traefik selects the backend using the HTTP `Host` header or TLS SNI. Use split DNS or NAT reflection if LAN clients must reach the same public names.
+
+Before configuring Kubernetes ingress, verify from an external network that OpenWrt can own the selected public address and that the ISP permits inbound TCP `80` and `443`.
+
+## Pod egress
+
+Normal pod Internet access leaves through OpenWrt using Cilium BPF masquerading. This is separate from Cilium Egress Gateway.
+
+Initial Cilium settings:
+
+```yaml
+kubeProxyReplacement: true
+bpf:
+  masquerade: true
+egressGateway:
+  enabled: false
+```
+
+Cilium Egress Gateway is only needed later if selected namespaces or pods must use a predictable outbound source IP. It does not provide inbound port forwarding, public DNS routing, or reverse proxying.
+
 ## Decisions still needed
 
 - Confirm final pod CIDR: `10.244.0.0/16` or `172.16.0.0/12`.
 - Confirm actual router DHCP pool excludes `.100-.103` and `.200-.220`.
 - Confirm NIC interface naming for the Phase 2 networkd file.
+- Record the public subnet prefix, provider gateway, and public IP reserved for Traefik.
+- Confirm OpenWrt WAN aliasing, ARP, DNAT, and firewall behavior with the ISP.
+- Select the public DNS provider and certificate automation method.
