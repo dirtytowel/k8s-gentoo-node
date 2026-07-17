@@ -1,0 +1,84 @@
+- name: validate cilium variables
+  ansible.builtin.assert:
+    that:
+      - api_vip is defined
+      - cilium_version | length > 0
+
+- name: check helm
+  ansible.builtin.command: helm version --short
+  delegate_to: localhost
+  changed_when: false
+
+- name: read cluster admin config
+  ansible.builtin.slurp:
+    src: /etc/kubernetes/admin.conf
+  register: cilium_admin_config
+  no_log: true
+
+- name: create temporary cilium directory
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: ansible_cilium_
+  delegate_to: localhost
+  register: cilium_temp
+  changed_when: false
+
+- name: install cilium
+  block:
+    - name: write temporary kubeconfig
+      ansible.builtin.copy:
+        content: "{{ cilium_admin_config.content | b64decode }}"
+        dest: "{{ cilium_temp.path }}/kubeconfig"
+        mode: '0600'
+      delegate_to: localhost
+      changed_when: false
+      no_log: true
+
+    - name: apply cilium helm release
+      kubernetes.core.helm:
+        release_name: cilium
+        chart_ref: "{{ cilium_chart }}"
+        chart_version: "{{ cilium_version }}"
+        release_namespace: kube-system
+        kubeconfig: "{{ cilium_temp.path }}/kubeconfig"
+        atomic: true
+        wait: true
+        timeout: "{{ cilium_timeout }}"
+        release_values:
+          k8sServiceHost: "{{ api_vip }}"
+          k8sServicePort: 6443
+          kubeProxyReplacement: true
+          routingMode: tunnel
+          tunnelProtocol: vxlan
+          ipam:
+            mode: kubernetes
+          bpf:
+            masquerade: true
+          egressGateway:
+            enabled: false
+          operator:
+            replicas: 2
+      delegate_to: localhost
+  always:
+    - name: remove temporary cilium directory
+      ansible.builtin.file:
+        path: "{{ cilium_temp.path }}"
+        state: absent
+      delegate_to: localhost
+      changed_when: false
+
+- name: wait for cilium agents
+  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system rollout status daemonset/cilium --timeout={{ cilium_timeout }}
+  changed_when: false
+
+- name: wait for cilium operator
+  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system rollout status deployment/cilium-operator --timeout={{ cilium_timeout }}
+  changed_when: false
+
+- name: wait for ready nodes
+  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf wait node --all --for=condition=Ready --timeout={{ cilium_timeout }}
+  changed_when: false
+
+- name: wait for coredns
+  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system rollout status deployment/coredns --timeout={{ cilium_timeout }}
+  changed_when: false

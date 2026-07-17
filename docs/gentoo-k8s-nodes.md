@@ -48,6 +48,10 @@ Cluster             NFS CSI driver    Persistent volumes backed by ZFS NAS
 Cilium, MetalLB, Traefik, and NFS CSI are deployed inside the cluster by Ansible.
 They do not live in the base tarball.
 
+Public ingress terminates on OpenWrt, not on a Kubernetes node. OpenWrt owns one address from the ISP's on-link public static subnet and DNATs TCP `80` and `443` to Traefik's private MetalLB VIP at `10.30.2.200`. Public DNS maps application hostnames to that public address, and Traefik routes them by HTTP host or TLS SNI.
+
+Cilium BPF masquerading provides normal pod Internet access through OpenWrt. Cilium Egress Gateway remains disabled unless selected workloads later require a predictable outbound source IP; it is unrelated to public ingress.
+
 ---
 
 ## Phase 1: Catalyst Build
@@ -193,9 +197,11 @@ kubeadm init \
 # Then apply in order:
 1. Cilium          (kubeProxyReplacement: true)
 2. MetalLB         + IPAddressPool (10.30.2.200-10.30.2.220)
-3. Traefik         (DaemonSet, hostNetwork: true, Service type: LoadBalancer)
-4. NFS CSI driver  + StorageClass pointing at ZFS NAS
-5. Remove NoSchedule taint from all 3 nodes
+3. Traefik         (private LoadBalancer IP 10.30.2.200)
+4. OpenWrt         (public static WAN IP, firewall4 DNAT 80/443 to 10.30.2.200)
+5. Public DNS/TLS  (application hostnames point to the public static IP)
+6. NFS CSI driver  + StorageClass pointing at ZFS NAS
+7. Remove NoSchedule taint from all 3 nodes
 ```
 
 ### kubeadm-join role (k8s-cp2, k8s-cp3)
@@ -268,3 +274,6 @@ MetalLB shifts the ingress VIP to a remaining healthy node. Traffic keeps flowin
 
 3. **Domain name** — Traefik needs this for Let's Encrypt. Public domain with DNS
    challenge, or internal `.lan`/`.home` with a self-signed CA?
+
+4. **Public ingress IP** — Record the usable address from the ISP's on-link static
+   subnet that OpenWrt will own and forward to `10.30.2.200`.
