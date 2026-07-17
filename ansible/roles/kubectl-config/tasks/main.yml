@@ -4,6 +4,15 @@
     state: directory
     mode: '0700'
 
+- name: read kubectl context
+  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf config current-context
+  register: kubectl_current_context
+  changed_when: false
+
+- name: rename kubectl context
+  ansible.builtin.command: "kubectl --kubeconfig=/etc/kubernetes/admin.conf config rename-context {{ kubectl_current_context.stdout }} {{ kubectl_context_name }}"
+  when: kubectl_current_context.stdout != kubectl_context_name
+
 - name: link root kube config
   ansible.builtin.file:
     src: /etc/kubernetes/admin.conf
