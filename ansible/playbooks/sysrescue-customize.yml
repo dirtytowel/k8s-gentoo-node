@@ -1,0 +1,93 @@
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    iso_version: '13.01'
+    iso_url: "https://fastly-cdn.system-rescue.org/releases/{{ iso_version }}/systemrescue-{{ iso_version }}-amd64.iso"
+    source_iso: "/tmp/systemrescue-{{ iso_version }}-amd64.iso"
+    dest_iso: /tmp/systemrescue-k8s-installer.iso
+    sysrescue_customize: /tmp/sysrescue-customize
+    sysrescue_customize_url: https://gitlab.com/systemrescue/systemrescue-sources/-/raw/main/airootfs/usr/share/sysrescue/bin/sysrescue-customize
+    sysrescue_root_password: password
+  tasks:
+    - name: check tools
+      ansible.builtin.shell: "command -v {{ item }}"
+      changed_when: false
+      loop: [bash, xorriso, mksquashfs]
+
+    - name: download systemrescue iso
+      ansible.builtin.get_url:
+        url: "{{ iso_url }}"
+        dest: "{{ source_iso }}"
+        mode: '0644'
+
+    - name: download sysrescue-customize
+      ansible.builtin.get_url:
+        url: "{{ sysrescue_customize_url }}"
+        dest: "{{ sysrescue_customize }}"
+        mode: '0755'
+
+    - name: create temp build dir
+      ansible.builtin.tempfile:
+        state: directory
+        path: /tmp
+        prefix: ansible_sysrescue_customize_
+        suffix: .tmp
+      register: build_tmp
+
+    - name: set build paths
+      ansible.builtin.set_fact:
+        build_dir: "{{ build_tmp.path }}"
+        recipe_dir: "{{ build_tmp.path }}/recipe"
+        work_dir: "{{ build_tmp.path }}/work"
+
+    - name: create recipe dirs
+      ansible.builtin.file:
+        path: "{{ recipe_dir }}/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop: [iso_add/sysrescue.d, iso_add/autorun]
+
+    - name: write sysrescue config
+      ansible.builtin.copy:
+        dest: "{{ recipe_dir }}/iso_add/sysrescue.d/500-k8s-installer.yaml"
+        mode: '0644'
+        content: |
+          ---
+          autorun:
+              ar_disable: false
+              exec:
+                  100:
+                      path: /run/archiso/bootmnt/autorun/autorun0
+                      wait: never
+                      on_error: continue
+
+    - name: write ssh autorun
+      ansible.builtin.copy:
+        dest: "{{ recipe_dir }}/iso_add/autorun/autorun0"
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          echo 'root:{{ sysrescue_root_password }}' | chpasswd
+          iptables -I INPUT -p tcp --dport 22 -j ACCEPT
+          systemctl start sshd
+
+    - name: build customized iso
+      ansible.builtin.command:
+        argv:
+          - "{{ sysrescue_customize }}"
+          - --auto
+          - "--source={{ source_iso }}"
+          - "--dest={{ dest_iso }}"
+          - "--recipe-dir={{ recipe_dir }}"
+          - "--work-dir={{ work_dir }}"
+          - --overwrite
+
+    - name: clean temp build dir
+      ansible.builtin.file:
+        path: "{{ build_dir }}"
+        state: absent
+
+    - name: print iso path
+      ansible.builtin.debug:
+        msg: "{{ dest_iso }}"

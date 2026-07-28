@@ -53,16 +53,19 @@ Pods do not get DHCP leases from the LAN. Cilium allocates pod IPs from the pod 
 
 Order of operations:
 
-1. PiKVM/Ansible writes node LAN config before first boot.
-2. Node boots with static IP and sshd.
-3. Ansible applies sysctls and kernel module config.
-4. Ansible configures keepalived API VIP.
-5. Kubeadm initializes or joins control plane nodes.
-6. Cilium handles pod networking and kube-proxy replacement.
-7. MetalLB advertises LoadBalancer IPs from `10.30.2.200-10.30.2.220`.
-8. Traefik gets a MetalLB IP, normally `10.30.2.200`.
-9. OpenWrt forwards TCP `80` and `443` from one public static IP to `10.30.2.200`.
-10. Public DNS points application hostnames at that public static IP.
+1. Ansible uses PiKVM to mount and boot a customized SystemRescue ISO.
+2. SystemRescue starts DHCP and sshd from `sysrescue.d` autorun configuration.
+3. Ansible connects to SystemRescue, installs the stage4, and writes the node LAN config.
+4. PiKVM unmounts the ISO and reboots the node from disk.
+5. Node boots with static IP and sshd.
+6. Ansible applies sysctls and kernel module config.
+7. Ansible configures keepalived API VIP.
+8. Kubeadm initializes or joins control plane nodes.
+9. Cilium handles pod networking and kube-proxy replacement.
+10. MetalLB advertises LoadBalancer IPs from `10.30.2.200-10.30.2.220`.
+11. Traefik gets a MetalLB IP, normally `10.30.2.200`.
+12. OpenWrt forwards TCP `80` and `443` from one public static IP to `10.30.2.200`.
+13. Public DNS points application hostnames at that public static IP.
 
 Required sysctls:
 
@@ -112,6 +115,8 @@ Cilium Egress Gateway is only needed later if selected namespaces or pods must u
 
 ## Decisions still needed
 
+- Add a reproducible `sysrescue-customize` build that enables SystemRescue ssh access.
+- Add PiKVM and SystemRescue install roles for the rolling rebuild pipeline.
 - Confirm final pod CIDR: `10.244.0.0/16` or `172.16.0.0/12`.
 - Confirm actual router DHCP pool excludes `.100-.103` and `.200-.220`.
 - Confirm NIC interface naming for the Phase 2 networkd file.
