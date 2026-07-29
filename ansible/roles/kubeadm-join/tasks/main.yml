@@ -41,19 +41,19 @@
 
     - name: create kubeadm config dir
       ansible.builtin.file:
-        path: "{{ kubeadm_join_config | dirname }}"
+        path: /etc/kubeadm
         state: directory
         mode: '0700'
 
     - name: write kubeadm join config
       ansible.builtin.template:
         src: kubeadm-join.yaml.j2
-        dest: "{{ kubeadm_join_config }}"
+        dest: /etc/kubeadm/join.yaml
         mode: '0600'
       no_log: true
 
     - name: join control plane node
-      ansible.builtin.command: "kubeadm join --config {{ kubeadm_join_config }}"
+      ansible.builtin.command: kubeadm join --config /etc/kubeadm/join.yaml
       args:
         creates: /etc/kubernetes/kubelet.conf
 
@@ -79,5 +79,5 @@
   always:
     - name: remove kubeadm join config
       ansible.builtin.file:
-        path: "{{ kubeadm_join_config }}"
+        path: /etc/kubeadm/join.yaml
         state: absent

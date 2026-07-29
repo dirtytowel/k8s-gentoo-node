@@ -1,3 +1,1 @@
-kubeadm_api_port: 6443
-kubeadm_config: /etc/kubernetes/kubeadm-init.yaml
 kubeadm_skip_phases: []
