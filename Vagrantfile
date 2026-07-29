@@ -18,13 +18,14 @@ Vagrant.configure("2") do |config|
         lv.cmd_line = "root=/dev/vda rw console=ttyS0 systemd.hostname=#{name}"
       end
 
-      # if name == "k8s-cp3"
-      #   node.vm.provision "ansible" do |ansible|
-      #     ansible.playbook = "ansible/site.yml"
-      #     ansible.inventory_path = "ansible/inventory/vagrant.yml"
-      #     ansible.limit = "k8s_nodes"
-      #   end
-      # end
+      if name == "k8s-cp3"
+        node.vm.provision "ansible" do |ansible|
+          ansible.config_file = "ansible/ansible.cfg"
+          ansible.playbook = "ansible/playbooks/k8s_setup.yml"
+          ansible.inventory_path = "ansible/inventory/vagrant.yml"
+          ansible.limit = "k8s_nodes"
+        end
+      end
 
     end
   end
