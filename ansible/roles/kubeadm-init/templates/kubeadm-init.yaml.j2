@@ -1,14 +1,14 @@
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
-  advertiseAddress: "{{ kubeadm_node_ip }}"
+  advertiseAddress: "{{ ansible_host }}"
   bindPort: {{ kubeadm_api_port }}
 nodeRegistration:
-  criSocket: "{{ kubeadm_cri_socket }}"
+  criSocket: "unix:///run/containerd/containerd.sock"
   name: "{{ inventory_hostname }}"
   kubeletExtraArgs:
     - name: node-ip
-      value: "{{ kubeadm_node_ip }}"
+      value: "{{ ansible_host }}"
 {% if kubeadm_skip_phases %}
 skipPhases:
 {% for phase in kubeadm_skip_phases %}
@@ -23,7 +23,7 @@ controlPlaneEndpoint: "{{ api_vip }}:{{ kubeadm_api_port }}"
 apiServer:
   certSANs:
     - "{{ api_vip }}"
-    - "{{ kubeadm_node_ip }}"
+    - "{{ ansible_host }}"
     - "{{ inventory_hostname }}"
 networking:
   dnsDomain: cluster.local

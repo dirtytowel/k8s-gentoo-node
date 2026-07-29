@@ -9,11 +9,11 @@ discovery:
 controlPlane:
   certificateKey: "{{ hostvars['localhost'].kubeadm_join_credentials.certificate_key }}"
   localAPIEndpoint:
-    advertiseAddress: "{{ kubeadm_node_ip }}"
+    advertiseAddress: "{{ ansible_host }}"
     bindPort: {{ kubeadm_api_port }}
 nodeRegistration:
-  criSocket: "{{ kubeadm_cri_socket }}"
+  criSocket: "unix:///run/containerd/containerd.sock"
   name: "{{ inventory_hostname }}"
   kubeletExtraArgs:
     - name: node-ip
-      value: "{{ kubeadm_node_ip }}"
+      value: "{{ ansible_host }}"
