@@ -166,7 +166,7 @@ ansible/
   inventory/
     hosts.yml              # cp1=.101, cp2=.102, cp3=.103
   group_vars/
-    k8s_nodes.yml          # pod_cidr, cluster_name, api_vip, ingress_vip pool
+    k8s_nodes.yml          # pod_cidr, service_cidr, cluster_name, api_vip, ingress_vip pool
   roles/
     common/                # sysctl, ntp, authorized_keys, resolved, modprobe
     containerd/            # /etc/containerd/config.toml (SystemdCgroup = true)
@@ -266,8 +266,8 @@ MetalLB shifts the ingress VIP to a remaining healthy node. Traffic keeps flowin
 
 ## Open Items Before Building
 
-1. **Pod CIDR** — Cilium default is `10.0.0.0/8`. Confirm it does not overlap your
-   LAN (`10.30.2.0/24`). Alternative: `172.16.0.0/12`.
+1. **Cluster CIDRs** — Pod CIDR is `172.16.0.0/16`; service CIDR is `172.20.0.0/16`.
+   Do not use Cilium default `10.0.0.0/8`; it overlaps future routed `10.x` networks.
 
 2. **Hardware specs** — CPU, NIC model, storage controller. Required to write the
    kernel `.config` for the Catalyst build.

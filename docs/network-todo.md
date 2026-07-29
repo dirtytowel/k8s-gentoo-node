@@ -38,14 +38,14 @@ kubeadm init --control-plane-endpoint=10.30.2.100:6443
 
 Do not use Cilium default `10.0.0.0/8`; it overlaps `10.30.2.0/24`.
 
-Use one of:
+Use:
 
 ```text
-172.16.0.0/12
-10.244.0.0/16
+pod CIDR:     172.16.0.0/16
+service CIDR: 172.20.0.0/16
 ```
 
-Preferred: `10.244.0.0/16`, unless another local network already uses it.
+Avoid `10.0.0.0/8` because future routed `10.x` networks may collide with the cluster.
 
 Pods do not get DHCP leases from the LAN. Cilium allocates pod IPs from the pod CIDR inside Kubernetes.
 
@@ -117,7 +117,7 @@ Cilium Egress Gateway is only needed later if selected namespaces or pods must u
 
 - Add a reproducible `sysrescue-customize` build that enables SystemRescue ssh access.
 - Add PiKVM and SystemRescue install roles for the rolling rebuild pipeline.
-- Confirm final pod CIDR: `10.244.0.0/16` or `172.16.0.0/12`.
+- Confirm final pod CIDR `172.16.0.0/16` and service CIDR `172.20.0.0/16`.
 - Confirm actual router DHCP pool excludes `.100-.103` and `.200-.220`.
 - Confirm NIC interface naming for the Phase 2 networkd file.
 - Record the public subnet prefix, provider gateway, and public IP reserved for Traefik.

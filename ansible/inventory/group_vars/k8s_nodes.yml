@@ -1,7 +1,7 @@
 cluster_name: gentoo-k8s
 kubeadm_api_port: 6443
-pod_cidr: 10.244.0.0/16
-service_cidr: 10.96.0.0/12
+pod_cidr: 172.16.0.0/16
+service_cidr: 172.20.0.0/16
 cilium_version: 1.19.6
 metallb_pool: 10.30.2.200-10.30.2.220
 kubeadm_skip_phases:
