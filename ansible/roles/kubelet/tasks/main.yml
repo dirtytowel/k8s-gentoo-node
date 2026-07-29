@@ -5,13 +5,13 @@
     mode: '0755'
 
 - name: configure kubelet service
-  ansible.builtin.template:
-    src: kubelet.service.j2
+  ansible.builtin.copy:
+    src: kubelet.service
     dest: /etc/systemd/system/kubelet.service
     mode: '0644'
   notify: reload systemd
 
-- name: remove kubelet drop-in
+- name: remove kubelet default service
   ansible.builtin.file:
     path: /etc/systemd/system/kubelet.service.d
     state: absent
