@@ -1,0 +1,15 @@
+# cleanup garbage .keep files created by portage
+
+- name: find etcd package keep files
+  ansible.builtin.find:
+    paths: /var/lib/etcd
+    patterns: .keep_*
+    file_type: file
+    hidden: true
+  register: kubeadm_etcd_keep_files
+
+- name: remove etcd package keep files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ kubeadm_etcd_keep_files.files }}"
