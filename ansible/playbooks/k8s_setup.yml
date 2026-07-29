@@ -1,37 +1,47 @@
+# init configs
 - hosts: k8s_nodes
+  tags: node-config
   roles:
-    - containerd
-    - kubelet
-    - keepalived
+
+    - role: containerd
+      tags: containerd
+
+    - role: kubelet
+      tags: kubelet
+
+    - role: keepalived
+      tags: keepalived
 
 - hosts: k8s_nodes
+  tags: init
   roles:
+
     - role: kubeadm-init
       run_once: true
+      tags: kubeadm-init
+
+    - role: kubeadm-join-credentials
+      tags: kubeadm-join-credentials
 
 - hosts: k8s_nodes
-  roles:
-    - kubeadm-join-credentials
-
-- hosts: k8s_nodes
+  tags: join
   serial: 1
   roles:
-    - kubeadm-join
+
+    - role: kubeadm-join
+      tags: kubeadm-join
 
 - hosts: k8s_nodes
+  tags: post-install
   gather_facts: false
   roles:
+
     - role: kubectl-config
       tags: kubectl-config
 
-- hosts: k8s_nodes
-  gather_facts: false
-  roles:
     - role: cilium
       run_once: true
+      tags: cilium
 
-- hosts: k8s_nodes
-  gather_facts: false
-  roles:
     - role: control-plane-workloads
       tags: control-plane-workloads
