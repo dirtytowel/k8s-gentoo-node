@@ -100,18 +100,3 @@
   delay: 2
   until: kubeadm_api_ready.status == 200
   when: kubeadm_init_required
-
-- name: create root kube config dir
-  ansible.builtin.file:
-    path: /root/.kube
-    state: directory
-    mode: '0700'
-  when: kubeadm_admin_conf.stat.exists or kubeadm_init_required
-
-- name: install root kube config
-  ansible.builtin.copy:
-    src: /etc/kubernetes/admin.conf
-    dest: /root/.kube/config
-    remote_src: true
-    mode: '0600'
-  when: kubeadm_admin_conf.stat.exists or kubeadm_init_required
