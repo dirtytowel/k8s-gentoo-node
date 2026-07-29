@@ -1,9 +1,3 @@
-- name: validate kubeadm join variables
-  ansible.builtin.assert:
-    that:
-      - api_vip is defined
-      - kubeadm_node_ip | length > 0
-
 - name: check local membership state
   ansible.builtin.stat:
     path: /etc/kubernetes/kubelet.conf
