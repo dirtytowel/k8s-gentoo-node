@@ -24,3 +24,5 @@ stage4/packages:
 	net-fs/nfs-utils
 	dev-db/etcd
 	sys-boot/grub
+	dev-vcs/git
+	sec-keys/openpgp-keys-gentoo-release
