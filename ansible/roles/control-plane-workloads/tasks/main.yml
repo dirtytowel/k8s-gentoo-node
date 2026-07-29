@@ -1,3 +1,9 @@
+- name: label control plane nodes
+  ansible.builtin.command:
+    argv: [kubectl, label, node, "{{ inventory_hostname }}", node-role.kubernetes.io/control-plane=, --overwrite]
+  register: control_plane_label
+  changed_when: "'not labeled' not in control_plane_label.stdout"
+
 - name: remove control plane scheduling taints
   ansible.builtin.command:
     argv: [kubectl, taint, node, "{{ inventory_hostname }}", "{{ item }}:NoSchedule-"]

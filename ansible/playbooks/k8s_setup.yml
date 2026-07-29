@@ -28,6 +28,9 @@
   serial: 1
   roles:
 
+    - role: kubeadm-replace-node-cleanup
+      tags: kubeadm-replace-node-cleanup
+
     - role: kubeadm-join
       tags: kubeadm-join
 

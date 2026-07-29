@@ -1,0 +1,24 @@
+- name: check local membership state
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubeadm_replace_kubelet_conf
+
+- name: clean stale replaced node state
+  when: not kubeadm_replace_kubelet_conf.stat.exists
+  block:
+    - name: remove stale node object
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig=/etc/kubernetes/admin.conf, delete, node, "{{ inventory_hostname }}", --ignore-not-found]
+      delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
+
+    - name: find stale etcd member
+      ansible.builtin.shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system exec etcd-{{ hostvars['localhost'].kubeadm_join_credential_source }} -- etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key member list | awk -F', ' '$3 == "{{ inventory_hostname }}" {print $1}'
+      delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
+      register: kubeadm_replace_etcd_member
+      changed_when: false
+
+    - name: remove stale etcd member
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig=/etc/kubernetes/admin.conf, -n, kube-system, exec, "etcd-{{ hostvars['localhost'].kubeadm_join_credential_source }}", --, etcdctl, --endpoints=https://127.0.0.1:2379, --cacert=/etc/kubernetes/pki/etcd/ca.crt, --cert=/etc/kubernetes/pki/etcd/server.crt, --key=/etc/kubernetes/pki/etcd/server.key, member, remove, "{{ kubeadm_replace_etcd_member.stdout }}"]
+      delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
+      when: kubeadm_replace_etcd_member.stdout | length > 0

@@ -46,6 +46,8 @@
       ansible.builtin.command: kubeadm join --config /etc/kubeadm/join.yaml
       args:
         creates: /etc/kubernetes/kubelet.conf
+      register: kubeadm_join_result
+      failed_when: kubeadm_join_result.rc != 0 and 'can only promote a learner member which is in sync with leader' not in kubeadm_join_result.stderr
 
     - name: wait for node registration
       ansible.builtin.command:
