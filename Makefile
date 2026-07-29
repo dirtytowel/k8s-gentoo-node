@@ -11,7 +11,7 @@ kubeconfig:
 	cd ansible && .venv/bin/ansible-playbook -i $(INVENTORY) playbooks/save-kubeconfig.yml
 
 stage4:
-	cd catalyst && docker compose run --rm --build catalyst
+	docker compose --project-directory catalyst run --rm --build catalyst
 
 box: stage4 clean-box
 	cd ansible && .venv/bin/ansible-playbook playbooks/build-vagrant-box.yml

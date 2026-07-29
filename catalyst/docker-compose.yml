@@ -6,5 +6,6 @@ services:
     volumes:
       - .:/catalyst:ro
       - ./work:/var/tmp/catalyst
+      - /dev:/dev
     working_dir: /var/tmp/catalyst
     command: sh /catalyst/build-stage4.sh
