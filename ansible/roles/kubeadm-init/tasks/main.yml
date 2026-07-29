@@ -54,22 +54,9 @@
   changed_when: false
   when: kubeadm_init_required
 
-
-# clean up portage littered keep files
-- name: find etcd package keep files
-  ansible.builtin.find:
-    paths: /var/lib/etcd
-    patterns: .keep_*
-    file_type: file
-    hidden: true
-  register: kubeadm_etcd_keep_files
-  when: kubeadm_init_required
-
-- name: remove etcd package keep files
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  loop: "{{ kubeadm_etcd_keep_files.files }}"
+- name: clean etcd package keep files
+  ansible.builtin.import_role:
+    name: kubeadm-etcd-cleanup
   when: kubeadm_init_required
 
 - name: initialize cluster

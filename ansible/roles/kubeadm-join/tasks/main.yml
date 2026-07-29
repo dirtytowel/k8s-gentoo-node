@@ -25,19 +25,9 @@
         that: kubeadm_partial_state.results | selectattr('stat.exists') | list | length == 0
         fail_msg: Partial kubeadm state exists; refusing to overwrite it.
 
-    - name: find etcd package keep files
-      ansible.builtin.find:
-        paths: /var/lib/etcd
-        patterns: .keep_*
-        file_type: file
-        hidden: true
-      register: kubeadm_etcd_keep_files
-
-    - name: remove etcd package keep files
-      ansible.builtin.file:
-        path: "{{ item.path }}"
-        state: absent
-      loop: "{{ kubeadm_etcd_keep_files.files }}"
+    - name: clean etcd package keep files
+      ansible.builtin.import_role:
+        name: kubeadm-etcd-cleanup
 
     - name: create kubeadm config dir
       ansible.builtin.file:
