@@ -1,16 +1,3 @@
-- name: validate kubeadm variables
-  ansible.builtin.assert:
-    that:
-      - api_vip is defined
-      - cluster_name is defined
-      - pod_cidr is defined
-      - service_cidr is defined
-      - kubeadm_node_ip | length > 0
-
-- name: check kubeadm
-  ansible.builtin.command: kubeadm version -o short
-  changed_when: false
-
 - name: check local control plane state
   ansible.builtin.stat:
     path: /etc/kubernetes/admin.conf
