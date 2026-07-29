@@ -54,6 +54,8 @@
   changed_when: false
   when: kubeadm_init_required
 
+
+# clean up portage littered keep files
 - name: find etcd package keep files
   ansible.builtin.find:
     paths: /var/lib/etcd
