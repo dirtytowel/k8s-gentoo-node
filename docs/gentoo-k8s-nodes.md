@@ -11,11 +11,13 @@
 ## Network Layout
 
 ```
-10.30.2.100     k8s-api-vip       keepalived floating IP — kubeadm --control-plane-endpoint
-10.30.2.101     k8s-cp1           node 1 static IP
-10.30.2.102     k8s-cp2           node 2 static IP
-10.30.2.103     k8s-cp3           node 3 static IP
-10.30.2.200     k8s-ingress-vip   MetalLB pool — Traefik LoadBalancer IP
+k8s subnet 10.30.3.0/24 on VLAN 50 (LAN is 10.30.1.0/24, WireGuard is 10.30.2.0/24)
+
+10.30.3.100     k8s-api-vip       keepalived floating IP — kubeadm --control-plane-endpoint
+10.30.3.101     k8s-cp1           node 1 static IP
+10.30.3.102     k8s-cp2           node 2 static IP
+10.30.3.103     k8s-cp3           node 3 static IP
+10.30.3.200     k8s-ingress-vip   MetalLB pool — Traefik LoadBalancer IP
 ```
 
 ## Partition Layout (All 3 Nodes, Identical)
@@ -35,7 +37,7 @@ Layer               Component         Role
 Infrastructure      containerd        container runtime
 Infrastructure      kubelet           node agent
 Infrastructure      kubeadm           cluster bootstrap
-Infrastructure      keepalived        k8s API VIP (10.30.2.100)
+Infrastructure      keepalived        k8s API VIP (10.30.3.100)
 Infrastructure      nfs-utils         NFS client for ZFS NAS mounts
 Infrastructure      etcd-utils        etcdctl — used during rolling redeploy
 
@@ -48,7 +50,7 @@ Cluster             NFS CSI driver    Persistent volumes backed by ZFS NAS
 Cilium, MetalLB, Traefik, and NFS CSI are deployed inside the cluster by Ansible.
 They do not live in the base tarball.
 
-Public ingress terminates on OpenWrt, not on a Kubernetes node. OpenWrt owns one address from the ISP's on-link public static subnet and DNATs TCP `80` and `443` to Traefik's private MetalLB VIP at `10.30.2.200`. Public DNS maps application hostnames to that public address, and Traefik routes them by HTTP host or TLS SNI.
+Public ingress terminates on OpenWrt, not on a Kubernetes node. OpenWrt owns one address from the ISP's on-link public static subnet and DNATs TCP `80` and `443` to Traefik's private MetalLB VIP at `10.30.3.200`. Public DNS maps application hostnames to that public address, and Traefik routes them by HTTP host or TLS SNI.
 
 Cilium BPF masquerading provides normal pod Internet access through OpenWrt. Cilium Egress Gateway remains disabled unless selected workloads later require a predictable outbound source IP; it is unrelated to public ingress.
 
@@ -171,7 +173,7 @@ ansible/
     common/                # sysctl, ntp, authorized_keys, resolved, modprobe
     containerd/            # /etc/containerd/config.toml (SystemdCgroup = true)
     kubelet/               # kubelet-config.yaml, systemd drop-ins
-    keepalived/            # VRRP config, VIP=10.30.2.100, priorities 101/100/99
+    keepalived/            # VRRP config, VIP=10.30.3.100, priorities 101/100/99
     kubeadm-init/          # runs on k8s-cp1 ONLY, first deploy ONLY
     kubeadm-join/          # runs on k8s-cp2, k8s-cp3
   site.yml
@@ -191,14 +193,14 @@ fs.inotify.max_user_instances       = 512
 
 ```
 kubeadm init \
-  --control-plane-endpoint=10.30.2.100:6443 \
+  --control-plane-endpoint=10.30.3.100:6443 \
   --upload-certs
 
 # Then apply in order:
 1. Cilium          (kubeProxyReplacement: true)
-2. MetalLB         + IPAddressPool (10.30.2.200-10.30.2.220)
-3. Traefik         (private LoadBalancer IP 10.30.2.200)
-4. OpenWrt         (public static WAN IP, firewall4 DNAT 80/443 to 10.30.2.200)
+2. MetalLB         + IPAddressPool (10.30.3.200-10.30.3.220)
+3. Traefik         (private LoadBalancer IP 10.30.3.200)
+4. OpenWrt         (DNAT 104.52.82.12:80/443 to 10.30.3.200)
 5. Public DNS/TLS  (application hostnames point to the public static IP)
 6. NFS CSI driver  + StorageClass pointing at ZFS NAS
 7. Remove NoSchedule taint from all 3 nodes
@@ -207,7 +209,7 @@ kubeadm init \
 ### kubeadm-join role (k8s-cp2, k8s-cp3)
 
 ```
-kubeadm join 10.30.2.100:6443 --control-plane
+kubeadm join 10.30.3.100:6443 --control-plane
 # etcd automatically syncs state from existing members
 ```
 
@@ -275,5 +277,5 @@ MetalLB shifts the ingress VIP to a remaining healthy node. Traffic keeps flowin
 3. **Domain name** — Traefik needs this for Let's Encrypt. Public domain with DNS
    challenge, or internal `.lan`/`.home` with a self-signed CA?
 
-4. **Public ingress IP** — Record the usable address from the ISP's on-link static
-   subnet that OpenWrt will own and forward to `10.30.2.200`.
+4. **Public ingress IP** — `104.52.82.12` from the AT&T `104.52.82.0/28` block;
+   OpenWrt DNATs TCP 80/443 from it to `10.30.3.200`.
