@@ -26,7 +26,7 @@
 
 - name: classify control plane nodes
   ansible.builtin.group_by:
-    key: "{{ 'kubeadm_join_source_candidates' if kubeadm_local_membership.stat.exists and kubeadm_local_admin.stat.exists and kubeadm_local_ca.stat.exists and kubeadm_local_api.rc | default(1) == 0 else 'kubeadm_join_targets' if not kubeadm_local_membership.stat.exists else 'kubeadm_join_unhealthy' }}"
+    key: "{{ 'kubeadm_join_source_candidates' if inventory_hostname in groups['k8s_control_plane'] and kubeadm_local_membership.stat.exists and kubeadm_local_admin.stat.exists and kubeadm_local_ca.stat.exists and kubeadm_local_api.rc | default(1) == 0 else 'kubeadm_join_control_plane_targets' if inventory_hostname in groups['k8s_control_plane'] and not kubeadm_local_membership.stat.exists else 'kubeadm_join_targets' if not kubeadm_local_membership.stat.exists else 'kubeadm_join_unhealthy' }}"
   changed_when: false
 
 - name: require healthy credential source
@@ -43,7 +43,7 @@
   run_once: true
 
 - name: prepare join credentials
-  when: groups.get('kubeadm_join_targets', []) | length > 0
+  when: (groups.get('kubeadm_join_targets', []) + groups.get('kubeadm_join_control_plane_targets', [])) | length > 0
   run_once: true
   block:
     - name: create join token
@@ -59,15 +59,18 @@
       delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
       register: kubeadm_certificate_key
       no_log: true
+      when: groups.get('kubeadm_join_control_plane_targets', []) | length > 0
 
     - name: stage cluster config
       ansible.builtin.shell: kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system get configmap kubeadm-config -o jsonpath='{.data.ClusterConfiguration}' > /run/kubeadm-cluster.yaml
       delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
+      when: groups.get('kubeadm_join_control_plane_targets', []) | length > 0
 
     - name: create temporary super admin config
       ansible.builtin.shell: kubeadm kubeconfig user --config /run/kubeadm-cluster.yaml --client-name=kubernetes-super-admin --org=system:masters > /run/kubeadm-super-admin.conf
       delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
       no_log: true
+      when: groups.get('kubeadm_join_control_plane_targets', []) | length > 0
 
     - name: stage certificate key
       ansible.builtin.copy:
@@ -76,6 +79,7 @@
         mode: '0600'
       delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
       no_log: true
+      when: groups.get('kubeadm_join_control_plane_targets', []) | length > 0
 
     - name: upload control plane certificates
       ansible.builtin.shell: kubeadm init phase upload-certs --upload-certs --certificate-key "$(cat /run/kubeadm-certificate-key)" --skip-certificate-key-print --kubeconfig /run/kubeadm-super-admin.conf
@@ -84,13 +88,14 @@
       retries: 3
       delay: 10
       until: kubeadm_uploaded_certs.rc == 0
+      when: groups.get('kubeadm_join_control_plane_targets', []) | length > 0
 
     - name: record join credentials
       ansible.builtin.set_fact:
         kubeadm_join_credentials:
           token: "{{ kubeadm_join_command.stdout | regex_search('--token ([^ ]+)', '\\1') | first }}"
           ca_hash: "{{ kubeadm_join_command.stdout | regex_search('--discovery-token-ca-cert-hash (sha256:[0-9a-f]+)', '\\1') | first }}"
-          certificate_key: "{{ kubeadm_certificate_key.stdout }}"
+          certificate_key: "{{ kubeadm_certificate_key.stdout | default('') }}"
       delegate_to: localhost
       delegate_facts: true
       no_log: true

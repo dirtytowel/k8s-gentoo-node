@@ -6,7 +6,12 @@ Vagrant.configure("2") do |config|
   config.ssh.sudo_command = "%c"
   config.vm.allow_fstab_modification = false
   config.vm.synced_folder ".", "/vagrant", disabled: true
-  nodes = {"k8s-cp1" => "192.168.56.101", "k8s-cp2" => "192.168.56.102", "k8s-cp3" => "192.168.56.103"}
+  kubeconfig = File.expand_path("~/.kube/vagrant")
+  config.trigger.after :destroy do |trigger|
+    trigger.info = "Deleting #{kubeconfig}"
+    trigger.run = {inline: "rm -f #{kubeconfig.inspect}"}
+  end
+  nodes = {"k8s-cp1" => "192.168.56.101", "k8s-cp2" => "192.168.56.102", "k8s-cp3" => "192.168.56.103", "k8s-w1" => "192.168.56.111", "k8s-w2" => "192.168.56.112"}
   nodes.each do |name, ip|
     config.vm.define name do |node|
       node.vm.network "private_network", ip: ip
@@ -18,12 +23,18 @@ Vagrant.configure("2") do |config|
         lv.cmd_line = "root=/dev/vda rw console=ttyS0 systemd.hostname=#{name}"
       end
 
-      if name == "k8s-cp3"
+      if name == "k8s-w2"
         node.vm.provision "ansible" do |ansible|
           ansible.config_file = "ansible/ansible.cfg"
           ansible.playbook = "ansible/playbooks/k8s_setup.yml"
           ansible.inventory_path = "ansible/inventory/vagrant.yml"
           ansible.limit = "k8s_nodes"
+        end
+        node.vm.provision "ansible" do |ansible|
+          ansible.config_file = "ansible/ansible.cfg"
+          ansible.playbook = "ansible/playbooks/save-kubeconfig.yml"
+          ansible.inventory_path = "ansible/inventory/vagrant.yml"
+          ansible.limit = "k8s_control_plane"
         end
       end
 

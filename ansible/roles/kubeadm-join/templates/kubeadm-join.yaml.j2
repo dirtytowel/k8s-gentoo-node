@@ -6,11 +6,13 @@ discovery:
     token: "{{ hostvars['localhost'].kubeadm_join_credentials.token }}"
     caCertHashes:
       - "{{ hostvars['localhost'].kubeadm_join_credentials.ca_hash }}"
+{% if inventory_hostname in groups['k8s_control_plane'] %}
 controlPlane:
   certificateKey: "{{ hostvars['localhost'].kubeadm_join_credentials.certificate_key }}"
   localAPIEndpoint:
     advertiseAddress: "{{ ansible_host }}"
     bindPort: {{ kubeadm_api_port }}
+{% endif %}
 nodeRegistration:
   criSocket: "unix:///run/containerd/containerd.sock"
   name: "{{ inventory_hostname }}"

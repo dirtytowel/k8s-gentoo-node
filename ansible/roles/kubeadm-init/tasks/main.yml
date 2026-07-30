@@ -7,7 +7,7 @@
   ansible.builtin.stat:
     path: /etc/kubernetes/admin.conf
   delegate_to: "{{ item }}"
-  loop: "{{ groups['k8s_nodes'] | difference([inventory_hostname]) }}"
+  loop: "{{ groups['k8s_control_plane'] | difference([inventory_hostname]) }}"
   register: kubeadm_peer_state
 
 - name: record peer control plane state
