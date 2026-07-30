@@ -19,15 +19,18 @@
         - /etc/kubernetes/manifests/kube-apiserver.yaml
         - /var/lib/etcd/member
       register: kubeadm_partial_state
+      when: inventory_hostname in groups['k8s_control_plane']
 
     - name: refuse partial kubeadm state
       ansible.builtin.assert:
         that: kubeadm_partial_state.results | selectattr('stat.exists') | list | length == 0
         fail_msg: Partial kubeadm state exists; refusing to overwrite it.
+      when: inventory_hostname in groups['k8s_control_plane']
 
     - name: clean etcd package keep files
       ansible.builtin.import_role:
         name: kubeadm-etcd-cleanup
+      when: inventory_hostname in groups['k8s_control_plane']
 
     - name: create kubeadm config dir
       ansible.builtin.file:
@@ -68,6 +71,7 @@
       retries: 30
       delay: 2
       until: kubeadm_etcd_pod.stdout == 'Running'
+      when: inventory_hostname in groups['k8s_control_plane']
   always:
     - name: remove kubeadm join config
       ansible.builtin.file:

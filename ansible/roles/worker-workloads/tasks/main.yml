@@ -1,0 +1,11 @@
+- name: label worker nodes
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig=/etc/kubernetes/admin.conf, label, node, "{{ inventory_hostname }}", node-role.kubernetes.io/worker=, --overwrite]
+  delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
+  register: worker_label
+  changed_when: "'not labeled' not in worker_label.stdout"
+
+- name: wait for ready nodes
+  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf wait node {{ inventory_hostname }} --for=condition=Ready --timeout=2m
+  delegate_to: "{{ hostvars['localhost'].kubeadm_join_credential_source }}"
+  changed_when: false

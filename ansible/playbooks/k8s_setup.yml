@@ -9,16 +9,24 @@
     - role: kubelet
       tags: kubelet
 
+- hosts: k8s_control_plane
+  tags: keepalived
+  roles:
+
     - role: keepalived
       tags: keepalived
 
-- hosts: k8s_nodes
+- hosts: k8s_control_plane
   tags: init
   roles:
 
     - role: kubeadm-init
       run_once: true
       tags: kubeadm-init
+
+- hosts: k8s_nodes
+  tags: init
+  roles:
 
     - role: kubeadm-join-credentials
       tags: kubeadm-join-credentials
@@ -34,7 +42,7 @@
     - role: kubeadm-join
       tags: kubeadm-join
 
-- hosts: k8s_nodes
+- hosts: k8s_control_plane
   tags: post-install
   gather_facts: false
   roles:
@@ -48,3 +56,11 @@
 
     - role: control-plane-workloads
       tags: control-plane-workloads
+
+- hosts: k8s_workers
+  tags: post-install
+  gather_facts: false
+  roles:
+
+    - role: worker-workloads
+      tags: worker-workloads

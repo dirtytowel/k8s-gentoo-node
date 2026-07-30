@@ -8,13 +8,21 @@ all:
       vars:
         api_vip: 192.168.56.100
         kubectl_context_name: vagrant
-      hosts:
-        k8s-cp1:
-          ansible_host: 192.168.56.101
-          keepalived_priority: 101
-        k8s-cp2:
-          ansible_host: 192.168.56.102
-          keepalived_priority: 100
-        k8s-cp3:
-          ansible_host: 192.168.56.103
-          keepalived_priority: 99
+      children:
+        k8s_control_plane:
+          hosts:
+            k8s-cp1:
+              ansible_host: 192.168.56.101
+              keepalived_priority: 101
+            k8s-cp2:
+              ansible_host: 192.168.56.102
+              keepalived_priority: 100
+            k8s-cp3:
+              ansible_host: 192.168.56.103
+              keepalived_priority: 99
+        k8s_workers:
+          hosts:
+            k8s-w1:
+              ansible_host: 192.168.56.111
+            k8s-w2:
+              ansible_host: 192.168.56.112
