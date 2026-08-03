@@ -1,24 +1,23 @@
 # Start from the official Gentoo stage3 image
 FROM gentoo/stage3:latest
-
-# Sync the ebuild repository
 RUN emerge --sync
 
-# Install Catalyst and necessary system tool dependencies
-RUN mkdir -p /etc/portage/package.accept_keywords && \
-    printf 'dev-util/catalyst ~amd64\n' >/etc/portage/package.accept_keywords/catalyst && \
-    mkdir -p /etc/portage/package.use && \
-    printf 'dev-util/catalyst -iso -qcow2\nsys-apps/util-linux python\n' >/etc/portage/package.use/catalyst && \
+# install catalyst
+RUN rm -rf /etc/portage/package.accept_keywords && \
+    echo 'dev-util/catalyst ~amd64' >> /etc/portage/package.accept_keywords; \
+    rm -rf /etc/portage/package.use && \
+    echo 'dev-util/catalyst -iso -qcow2' >> /etc/portage/package.use; \
+    echo 'sys-apps/util-linux python' >> /etc/portage/package.use; \
     emerge dev-util/catalyst app-cdr/cdrtools
 
-# Create the standard catalyst directory layout structure
+# catalyst dirs
 RUN mkdir -p /var/tmp/catalyst/builds/default \
              /var/tmp/catalyst/config/stages \
+             /var/tmp/catalyst/repos \
+             /var/tmp/catalyst/snapshots \
              /etc/catalyst
 
-# Copy default configuration templates into place
-RUN test -f /etc/catalyst/catalyst.conf
-
-RUN printf 'export MAKEOPTS="-j$(nproc) -l$(nproc)"\nexport NICENESS="19"\n' >/etc/catalyst/catalystrc
+RUN echo 'export MAKEOPTS="-j$(nproc) -l$(nproc)"' >> /etc/catalyst/catalystrc; \
+    echo 'export NICENESS="19"' >> /etc/catalyst/catalystrc
 
 WORKDIR /var/tmp/catalyst
