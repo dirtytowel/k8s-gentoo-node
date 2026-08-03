@@ -11,25 +11,19 @@ kubeconfig:
 	cd ansible && .venv/bin/ansible-playbook -i $(INVENTORY) playbooks/save-kubeconfig.yml
 
 stage4:
-	docker compose --project-directory catalyst run --rm --build catalyst
+	cd catalyst && docker compose run --rm --build catalyst
 
-box: stage4 clean-box
+box: vagrant-clean
 	cd ansible && .venv/bin/ansible-playbook playbooks/build-vagrant-box.yml
 
 vagrant:
 	vagrant up --provider=libvirt
 
-clean-vagrant:
-	vagrant destroy -f
-
-clean-box:
+vagrant-clean:
 	vagrant destroy -f || true
 	vagrant box remove k8s-node-ops-stage4 --all --force || true
-	$(MAKE) clean-box-cache
-
-clean-box-cache:
 	virsh -c qemu:///system vol-list default | awk '/k8s-node-ops-stage4_vagrant_box_image_/ {print $$1}' | xargs -r -I{} virsh -c qemu:///system vol-delete {} --pool default
 
-clean: clean-box
+clean: vagrant-clean
 	rm -rf catalyst/work .vagrant vagrant/.vagrant vagrant/build ansible/vagrant /tmp/ansible_vagrant_box_*.tmp
 	rm -f vagrant/*.box vagrant/vmlinuz vagrant/initramfs

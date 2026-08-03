@@ -4,6 +4,7 @@ services:
     image: gentoo-k8s-catalyst
     privileged: true
     volumes:
+      - /usr/local/bin:/usr/local/bin/build-stage4.sh:ro
       - .:/catalyst:ro
       - ./work:/var/tmp/catalyst
       - /dev:/dev
