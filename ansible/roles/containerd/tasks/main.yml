@@ -19,7 +19,6 @@
   changed_when: false
   loop: 
     - overlay
-    - br_netfilter
 
 - name: write k8s sysctl
   ansible.builtin.copy:
