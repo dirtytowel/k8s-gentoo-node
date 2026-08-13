@@ -35,13 +35,6 @@
     - not kubeadm_admin_conf.stat.exists
     - kubeadm_peer_state_exists
 
-- name: create kubernetes config dir
-  ansible.builtin.file:
-    path: /etc/kubernetes
-    state: directory
-    mode: '0755'
-  when: kubeadm_init_required
-
 - name: write kubeadm init config
   ansible.builtin.template:
     src: kubeadm-init.yaml.j2
