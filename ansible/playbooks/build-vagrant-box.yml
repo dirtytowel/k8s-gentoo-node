@@ -87,15 +87,6 @@
         - {dest: "{{ overlay_dir }}/root/.ssh/authorized_keys", content: "{{ vagrant_pubkey }}", mode: '0600'}
         - {dest: "{{ overlay_dir }}/etc/portage/repos.conf/gentoo.conf", content: "{{ gentoo_repos_conf }}"}
 
-    - name: enable overlay services
-      ansible.builtin.file:
-        src: "/usr/lib/systemd/system/{{ item }}.service"
-        dest: "{{ overlay_dir }}/etc/systemd/system/multi-user.target.wants/{{ item }}.service"
-        state: link
-        force: true
-        follow: false
-      loop: [sshd, systemd-networkd, systemd-resolved, containerd, kubelet, keepalived]
-
     - name: link resolv.conf
       ansible.builtin.file:
         src: /run/systemd/resolve/stub-resolv.conf
