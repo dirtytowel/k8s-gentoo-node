@@ -1,0 +1,40 @@
+flowchart LR
+  subgraph lan["physical LAN / routable subnet / 10.30.3.0/24"]
+    admin["admin client<br/>kubectl"]
+    user["app client<br/>browser/curl"]
+    api["control-plane API VIP<br/>10.30.3.100:6443"]
+    lbip["application LoadBalancer IP<br/>10.30.3.200-220"]
+
+    subgraph cluster["k8s node cluster"]
+      nodes["schedulable nodes<br/>control-plane: 10.30.3.101-103<br/>workers: 10.30.3.111-112"]
+      cilium["Cilium<br/>LB-IPAM assigns IPs<br/>L2 announcements answer ARP<br/>eBPF service load balancing"]
+
+      subgraph virtual["k8s virtual networks"]
+        svc["Service / ClusterIP<br/>172.20.0.0/16"]
+        pods["backend Pods<br/>172.16.0.0/16"]
+      end
+    end
+  end
+
+  admin -->|"kubectl"| api
+  api -->|"keepalived VIP"| nodes
+
+  user -->|"app request"| lbip
+  cilium -->|"allocates"| lbip
+  lbip -->|"ARP lands traffic on node"| nodes
+  nodes -->|"Cilium forwards"| svc
+  svc -->|"selects endpoints"| pods
+
+  classDef client fill:#1f2937,stroke:#f8fafc,stroke-width:2px,color:#f8fafc
+  classDef control fill:#3b2f0b,stroke:#facc15,stroke-width:2px,color:#fefce8
+  classDef app fill:#052e16,stroke:#4ade80,stroke-width:2px,color:#f0fdf4
+  classDef node fill:#2e1065,stroke:#c4b5fd,stroke-width:2px,color:#faf5ff
+  classDef datapath fill:#083344,stroke:#67e8f9,stroke-width:2px,color:#ecfeff
+  style lan fill:#18181b,stroke:#f8fafc,stroke-width:4px,color:#f8fafc
+  style cluster fill:#111827,stroke:#c4b5fd,stroke-width:3px,color:#faf5ff
+  style virtual fill:#0f172a,stroke:#67e8f9,stroke-width:2px,color:#ecfeff
+  class admin,user client
+  class api control
+  class lbip app
+  class nodes node
+  class cilium,svc,pods datapath
