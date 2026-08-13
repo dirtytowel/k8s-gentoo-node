@@ -1,6 +1,6 @@
 INVENTORY ?= inventory/vagrant.yml
 
-.PHONY: venv kubeconfig stage4 box vagrant clean-vagrant clean-box-cache clean-box clean
+.PHONY: venv kubeconfig stage4 box vagrant vagrant-clean clean
 
 venv:
 	cd ansible && python3 -m venv .venv
