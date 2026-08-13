@@ -54,13 +54,13 @@
       run_once: true
       tags: cilium
 
-    - role: control-plane-workloads
-      tags: control-plane-workloads
+    - role: control-plane-config
+      tags: control-plane-config
 
 - hosts: k8s_workers
   tags: post-install
   gather_facts: false
   roles:
 
-    - role: worker-workloads
-      tags: worker-workloads
+    - role: worker-config
+      tags: worker-config

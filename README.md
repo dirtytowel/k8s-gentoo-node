@@ -123,7 +123,7 @@ node-config         containerd + kubelet on every node
 keepalived          API VIP on the control plane
 init                kubeadm init (run once) + join credentials
 join                kubeadm join, one node at a time (serial: 1)
-post-install        kubectl config, cilium CNI, control-plane/worker workloads
+post-install        kubectl config, cilium CNI, control-plane/worker node config
 ```
 
 ```sh
