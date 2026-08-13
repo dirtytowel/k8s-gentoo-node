@@ -4,7 +4,6 @@
     state: directory
     mode: '0755'
   loop: 
-    - /etc/modules-load.d
     - /etc/sysctl.d
     - /etc/containerd
 
@@ -13,12 +12,6 @@
     src: modules-load.conf
     dest: /etc/modules-load.d/k8s.conf
     mode: '0644'
-
-- name: load k8s modules
-  ansible.builtin.command: "modprobe {{ item }}"
-  changed_when: false
-  loop: 
-    - overlay
 
 - name: write k8s sysctl
   ansible.builtin.copy:

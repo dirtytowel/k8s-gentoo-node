@@ -7,11 +7,7 @@ Requires=containerd.service
 
 [Service]
 WorkingDirectory=/var/lib/kubelet
-Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
-Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
-EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
-EnvironmentFile=-/etc/default/kubelet
-ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
+ExecStart=/usr/bin/kubelet
 Restart=always
 RestartSec=10s
 

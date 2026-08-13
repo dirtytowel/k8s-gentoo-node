@@ -1,9 +1,3 @@
-- name: create kubelet dirs
-  ansible.builtin.file:
-    path: /var/lib/kubelet
-    state: directory
-    mode: '0755'
-
 - name: configure kubelet service
   ansible.builtin.copy:
     src: kubelet.service
@@ -11,10 +5,17 @@
     mode: '0644'
   notify: reload systemd
 
-- name: remove kubelet default service
+- name: create kubelet service dropin dir
   ansible.builtin.file:
     path: /etc/systemd/system/kubelet.service.d
-    state: absent
+    state: directory
+    mode: '0755'
+
+- name: configure kubeadm dropin
+  ansible.builtin.copy:
+    src: 10-kubeadm.conf
+    dest: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+    mode: '0644'
   notify: reload systemd
 
 - name: enable kubelet

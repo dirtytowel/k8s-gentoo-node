@@ -1,8 +1,3 @@
-- name: create keepalived dir
-  ansible.builtin.file:
-    path: /etc/keepalived
-    state: directory
-
 - name: detect vip interface
   ansible.builtin.command: "ip -o -4 addr show to {{ ansible_host }}/32"
   register: node_address
