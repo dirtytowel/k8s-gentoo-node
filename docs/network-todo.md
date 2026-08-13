@@ -63,6 +63,8 @@ Pods do not get DHCP leases from the LAN. Cilium allocates pod IPs from the pod 
 
 ## Cluster networking stack
 
+PiKVM/SystemRescue, MetalLB, Traefik, and public ingress are planned flow, not implemented roles yet.
+
 Order of operations:
 
 1. Ansible uses PiKVM to mount and boot a customized SystemRescue ISO.

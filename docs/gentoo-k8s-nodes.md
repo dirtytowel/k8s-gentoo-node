@@ -47,7 +47,7 @@ Cluster             Traefik           Ingress controller, TLS, Let's Encrypt
 Cluster             NFS CSI driver    Persistent volumes backed by ZFS NAS
 ```
 
-Cilium, MetalLB, Traefik, and NFS CSI are deployed inside the cluster by Ansible.
+Cilium is deployed inside the cluster by Ansible. MetalLB, Traefik, and NFS CSI are planned but not implemented here yet.
 They do not live in the base tarball.
 
 Public ingress terminates on OpenWrt, not on a Kubernetes node. OpenWrt owns one address from the ISP's on-link public static subnet and DNATs TCP `80` and `443` to Traefik's private MetalLB VIP at `10.30.3.200`. Public DNS maps application hostnames to that public address, and Traefik routes them by HTTP host or TLS SNI.
