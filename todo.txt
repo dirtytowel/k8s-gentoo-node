@@ -1,0 +1,16 @@
+(C) eventually test this on real nodes in my lab with some sort of CI/CD workflow
+(A) Cluster CIDRs — Pod CIDR is `172.16.0.0/16`; service CIDR is `172.20.0.0/16`. Do not use Cilium default `10.0.0.0/8`; it overlaps future routed `10.x` networks.
+(A) Hardware specs — CPU, NIC model, storage controller. Required to write the kernel `.config` for the Catalyst build.
+(B) Domain name — Traefik needs this for Let's Encrypt. Public domain with DNS challenge, or internal `.lan`/`.home` with a self-signed CA?
+(A) Public ingress IP — `104.52.82.12` from the AT&T `104.52.82.0/28` block; OpenWrt DNATs TCP 80/443 from it to `10.30.3.200`.
+(B) Add a reproducible `sysrescue-customize` build that enables SystemRescue ssh access.
+(B) Add PiKVM and SystemRescue install roles for the rolling rebuild pipeline.
+(A) Create the OpenWrt `k8s` interface (`br.50`, `10.30.3.1/24`), bridge-vlan 50 tagged on `eth2`/`eth3`, and `k8s` firewall zone.
+(A) Add MetalLB Ansible role with L2 pool `10.30.3.200-10.30.3.220`.
+(B) Add Traefik Ansible role using MetalLB IP `10.30.3.200`.
+(A) Confirm downstream managed switch trunks VLAN 50 and sets node ports untagged in VLAN 50.
+(A) Confirm NIC interface naming for the Phase 2 networkd file (must write `10.30.3.x`).
+(A) Record which `104.52.82.x` address is reserved for Traefik DNAT.
+(A) Confirm OpenWrt `firewall4` DNAT for TCP `80`/`443` from `pub` to `10.30.3.200`.
+(B) Add WireGuard `AllowedIPs` for `10.30.3.0/24` and the `wg0` -> `k8s` firewall forward.
+(B) Select the public DNS provider and certificate automation method.
