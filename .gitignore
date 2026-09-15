@@ -7,3 +7,5 @@ vagrant/vmlinuz
 vagrant/initramfs
 ansible/vagrant/
 ansible/.venv/
+done.txt
+todo.txt
