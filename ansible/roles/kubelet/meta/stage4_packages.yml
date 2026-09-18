@@ -1,0 +1,5 @@
+stage4_packages:
+  - sys-cluster/kubelet
+  - net-firewall/conntrack-tools
+  - sys-apps/ethtool
+  - net-misc/socat

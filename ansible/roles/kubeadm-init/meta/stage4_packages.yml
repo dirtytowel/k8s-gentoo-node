@@ -1,0 +1,3 @@
+stage4_packages:
+  - sys-cluster/kubeadm
+  - dev-db/etcd

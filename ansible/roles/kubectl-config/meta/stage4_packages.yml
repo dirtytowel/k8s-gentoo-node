@@ -1,0 +1,2 @@
+stage4_packages:
+  - sys-cluster/kubectl

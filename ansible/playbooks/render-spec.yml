@@ -1,0 +1,53 @@
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    playbook: "{{ playbook_dir }}/k8s_setup.yml"
+    roles_dir: "{{ playbook_dir }}/../roles"
+    spec_out: "{{ playbook_dir }}/../../catalyst/specs/stage4-k8s.spec"
+    base_packages:
+      - sys-kernel/gentoo-kernel
+      - sys-apps/systemd
+      - net-misc/openssh
+      - sys-boot/grub
+      - dev-vcs/git
+      - sec-keys/openpgp-keys-gentoo-release
+  tasks:
+    - name: read the setup playbook
+      ansible.builtin.slurp:
+        src: "{{ playbook }}"
+      register: pb
+
+    - name: derive the roles that will run
+      ansible.builtin.set_fact:
+        run_roles: >-
+          {{ (pb.content | b64decode | from_yaml)
+             | selectattr('roles', 'defined')
+             | map(attribute='roles') | flatten
+             | map(attribute='role') | unique }}
+
+    - name: load each role's package file
+      ansible.builtin.include_vars:
+        file: "{{ roles_dir }}/{{ role_name }}/meta/stage4_packages.yml"
+        name: "rp_{{ role_name | replace('-', '_') }}"
+      loop: "{{ run_roles }}"
+      loop_control:
+        loop_var: role_name
+      failed_when: false
+
+    - name: aggregate package list
+      ansible.builtin.set_fact:
+        stage4_packages: >-
+          {{ (base_packages + (run_roles | map('replace', '-', '_')
+             | map('regex_replace', '^', 'rp_') | map('extract', vars)
+             | select('defined') | map(attribute='stage4_packages', default=[])
+             | flatten)) | unique | sort }}
+
+    - name: render the catalyst spec
+      ansible.builtin.template:
+        src: stage4.spec.j2
+        dest: "{{ spec_out }}"
+
+    - name: report
+      ansible.builtin.debug:
+        msg: "{{ run_roles | length }} roles -> {{ stage4_packages | length }} packages -> {{ spec_out }}"

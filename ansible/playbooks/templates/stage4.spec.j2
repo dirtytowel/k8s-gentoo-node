@@ -1,0 +1,15 @@
+subarch: amd64
+target: stage4
+version_stamp: k8s
+rel_type: default
+profile: default/linux/amd64/23.0/systemd
+source_subpath: stage3-amd64-systemd-latest.tar.xz
+compression_mode: xz
+decompressor_search_order: xz
+snapshot_treeish: master
+portage_confdir: /catalyst/portage
+stage4/root_overlay: /catalyst/root_overlay
+stage4/packages:
+{% for pkg in stage4_packages %}
+	{{ pkg }}
+{% endfor %}
