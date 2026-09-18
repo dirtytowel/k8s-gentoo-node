@@ -47,11 +47,6 @@
   changed_when: false
   when: kubeadm_init_required
 
-- name: clean etcd package keep files
-  ansible.builtin.import_role:
-    name: kubeadm-etcd-cleanup
-  when: kubeadm_init_required
-
 - name: initialize cluster
   ansible.builtin.command: kubeadm init --config /etc/kubernetes/kubeadm-init.yaml --skip-token-print
   args:
