@@ -5,7 +5,7 @@ vagrant/build/
 vagrant/*.box
 vagrant/vmlinuz
 vagrant/initramfs
-ansible/vagrant/
-ansible/.venv/
+vagrant/
+.venv/
 done.txt
 todo.txt
