@@ -4,7 +4,7 @@
   vars:
     stage4: "{{ playbook_dir }}/../../catalyst/work/builds/default/stage4-amd64-k8s.tar.xz"
     disk_gb: 20
-    artifact_dir: "{{ playbook_dir }}/../../vagrant"
+    artifact_dir: "{{ playbook_dir }}/../vagrant"
     box_out: "{{ artifact_dir }}/k8s-node-ops-stage4.box"
     helper: "{{ playbook_dir }}/files/build-rootfs.sh"
     vagrant_pubkey: |
