@@ -1,2 +1,4 @@
 stage4_packages:
   - net-fs/nfs-utils
+stage4_use:
+  net-fs/nfs-utils: [nfsv4]

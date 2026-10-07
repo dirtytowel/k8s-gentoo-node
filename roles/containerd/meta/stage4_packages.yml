@@ -1,2 +1,6 @@
 stage4_packages:
   - app-containers/containerd
+stage4_use:
+  app-containers/containerd: [btrfs, seccomp]
+stage4_services:
+  - containerd.service

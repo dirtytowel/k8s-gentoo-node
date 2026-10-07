@@ -1,0 +1,24 @@
+stage4_packages:
+  - sys-kernel/gentoo-kernel
+  - sys-apps/systemd
+  - net-misc/openssh
+  - sys-boot/grub
+  - dev-vcs/git
+  - sec-keys/openpgp-keys-gentoo-release
+stage4_use:
+  sys-apps/systemd: [resolved, networkd]
+  sys-kernel/installkernel: [dracut]
+stage4_services:
+  - sshd.service
+  - systemd-networkd.service
+  - systemd-resolved.service
+stage4_make_conf:
+  COMMON_FLAGS: -O2 -pipe
+  CFLAGS: ${COMMON_FLAGS}
+  CXXFLAGS: ${COMMON_FLAGS}
+  FCFLAGS: ${COMMON_FLAGS}
+  FFLAGS: ${COMMON_FLAGS}
+  MAKEOPTS: -j$(nproc)
+  USE: [systemd, -elogind]
+  ACCEPT_LICENSE: "*"
+  GRUB_PLATFORMS: [efi-64]

@@ -1,0 +1,9 @@
+{% set ns = namespace(d={}) %}
+{% for r in run_roles %}
+{% for pkg, flags in (vars.get('rp_' ~ (r | replace('-', '_')), {}).get('stage4_use', {})).items() %}
+{% set ns.d = ns.d | combine({pkg: ((ns.d.get(pkg, []) + flags) | unique | list)}) %}
+{% endfor %}
+{% endfor %}
+{% for pkg, flags in ns.d | dictsort %}
+{{ pkg }} {{ flags | sort | join(' ') }}
+{% endfor %}

@@ -1,2 +1,4 @@
 stage4_packages:
   - sys-cluster/keepalived
+stage4_services:
+  - keepalived.service

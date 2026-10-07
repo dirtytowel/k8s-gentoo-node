@@ -1,0 +1,3 @@
+{% for k, v in stage4_make_conf.items() %}
+{{ k }}="{{ (v | unique | join(' ')) if v is sequence and v is not string else v }}"
+{% endfor %}
