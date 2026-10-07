@@ -11,6 +11,7 @@ kubeconfig:
 	.venv/bin/ansible-playbook -i $(INVENTORY) playbooks/save-kubeconfig.yml
 
 stage4:
+	.venv/bin/ansible-playbook -i $(INVENTORY) playbooks/catalyst.yml
 	cd catalyst && docker compose run --rm --build catalyst
 
 box: vagrant-clean

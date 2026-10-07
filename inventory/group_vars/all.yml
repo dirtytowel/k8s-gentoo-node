@@ -1,0 +1,10 @@
+stage4_make_conf_base:
+  COMMON_FLAGS: -O2 -pipe
+  CFLAGS: ${COMMON_FLAGS}
+  CXXFLAGS: ${COMMON_FLAGS}
+  FCFLAGS: ${COMMON_FLAGS}
+  FFLAGS: ${COMMON_FLAGS}
+  MAKEOPTS: -j$(nproc)
+  USE: [systemd, -elogind]
+  ACCEPT_LICENSE: "*"
+  GRUB_PLATFORMS: [efi-64]

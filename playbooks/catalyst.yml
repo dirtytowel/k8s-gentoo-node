@@ -1,5 +1,4 @@
-- hosts: localhost
-  connection: local
+- hosts: all
   gather_facts: false
   vars:
     playbook: "{{ playbook_dir }}/k8s_setup.yml"
@@ -7,88 +6,92 @@
     spec_out: "{{ playbook_dir }}/../catalyst/specs/stage4-k8s.spec"
     overlay_dir: "{{ playbook_dir }}/../catalyst/root_overlay"
   tasks:
-    - name: read the setup playbook
-      ansible.builtin.slurp:
-        src: "{{ playbook }}"
-      register: pb
+    - name: render catalyst inputs
+      run_once: true
+      delegate_to: localhost
+      block:
+        - name: read the setup playbook
+          ansible.builtin.slurp:
+            src: "{{ playbook }}"
+          register: pb
 
-    - name: derive the roles that will run
-      ansible.builtin.set_fact:
-        run_roles: >-
-          {{ ['common'] + ((pb.content | b64decode | from_yaml)
-             | selectattr('roles', 'defined')
-             | map(attribute='roles') | flatten
-             | map(attribute='role') | unique | reject('equalto', 'common') | list) }}
+        - name: derive the roles that will run
+          ansible.builtin.set_fact:
+            run_roles: >-
+              {{ ['common'] + ((pb.content | b64decode | from_yaml)
+                 | selectattr('roles', 'defined')
+                 | map(attribute='roles') | flatten
+                 | map(attribute='role') | unique | reject('equalto', 'common') | list) }}
 
-    - name: load each role's package file
-      ansible.builtin.include_vars:
-        file: "{{ roles_dir }}/{{ role_name }}/meta/stage4_packages.yml"
-        name: "rp_{{ role_name | replace('-', '_') }}"
-      loop: "{{ run_roles }}"
-      loop_control:
-        loop_var: role_name
-      failed_when: false
+        - name: load each role's package file
+          ansible.builtin.include_vars:
+            file: "{{ roles_dir }}/{{ role_name }}/meta/stage4_packages.yml"
+            name: "rp_{{ role_name | replace('-', '_') }}"
+          loop: "{{ run_roles }}"
+          loop_control:
+            loop_var: role_name
+          failed_when: false
 
-    - name: aggregate package list
-      ansible.builtin.set_fact:
-        stage4_packages: >-
-          {{ ((run_roles | map('replace', '-', '_')
-             | map('regex_replace', '^', 'rp_') | map('extract', vars)
-             | select('defined') | map(attribute='stage4_packages', default=[])
-             | flatten)) | unique | sort }}
+        - name: aggregate package list
+          ansible.builtin.set_fact:
+            stage4_packages: >-
+              {{ ((run_roles | map('replace', '-', '_')
+                 | map('regex_replace', '^', 'rp_') | map('extract', vars)
+                 | select('defined') | map(attribute='stage4_packages', default=[])
+                 | flatten)) | unique | sort }}
 
-    - name: aggregate services
-      ansible.builtin.set_fact:
-        stage4_services: >-
-          {{ ((run_roles | map('replace', '-', '_')
-             | map('regex_replace', '^', 'rp_') | map('extract', vars)
-             | select('defined') | map(attribute='stage4_services', default=[])
-             | flatten)) | unique | sort }}
+        - name: aggregate services
+          ansible.builtin.set_fact:
+            stage4_services: >-
+              {{ ((run_roles | map('replace', '-', '_')
+                 | map('regex_replace', '^', 'rp_') | map('extract', vars)
+                 | select('defined') | map(attribute='stage4_services', default=[])
+                 | flatten)) | unique | sort }}
 
-    - name: aggregate make.conf
-      ansible.builtin.set_fact:
-        stage4_make_conf: >-
-          {{ {} | combine(*(run_roles | map('replace', '-', '_')
-             | map('regex_replace', '^', 'rp_') | map('extract', vars)
-             | select('defined') | map(attribute='stage4_make_conf', default={})
-             | list), list_merge='append') }}
+        - name: aggregate make.conf
+          ansible.builtin.set_fact:
+            stage4_make_conf: >-
+              {{ (stage4_make_conf_base | default({})) | combine(*(run_roles | map('replace', '-', '_')
+                 | map('regex_replace', '^', 'rp_') | map('extract', vars)
+                 | select('defined') | map(attribute='stage4_make_conf', default={})
+                 | list), list_merge='append') }}
 
-    - name: render make.conf
-      ansible.builtin.template:
-        src: make.conf.j2
-        dest: "{{ playbook_dir }}/../catalyst/portage/make.conf"
-        trim_blocks: true
+        - name: render make.conf
+          ansible.builtin.template:
+            src: make.conf.j2
+            dest: "{{ playbook_dir }}/../catalyst/portage/make.conf"
+            trim_blocks: true
 
-    - name: ensure multi-user.target.wants exists
-      ansible.builtin.file:
-        path: "{{ overlay_dir }}/etc/systemd/system/multi-user.target.wants"
-        state: directory
+        - name: ensure multi-user.target.wants exists
+          ansible.builtin.file:
+            path: "{{ overlay_dir }}/etc/systemd/system/multi-user.target.wants"
+            state: directory
 
-    - name: link enabled services into the overlay
-      ansible.builtin.file:
-        src: "/usr/lib/systemd/system/{{ item }}"
-        dest: "{{ overlay_dir }}/etc/systemd/system/multi-user.target.wants/{{ item }}"
-        state: link
-        force: true
-      loop: "{{ stage4_services }}"
+        - name: link enabled services into the overlay
+          ansible.builtin.file:
+            src: "/usr/lib/systemd/system/{{ item }}"
+            dest: "{{ overlay_dir }}/etc/systemd/system/multi-user.target.wants/{{ item }}"
+            state: link
+            force: true
+          loop: "{{ stage4_services }}"
 
-    - name: render package.use
-      ansible.builtin.template:
-        src: package.use.j2
-        dest: "{{ playbook_dir }}/../catalyst/portage/package.use/generated"
-        trim_blocks: true
-        lstrip_blocks: true
+        - name: render package.use
+          ansible.builtin.template:
+            src: package.use.j2
+            dest: "{{ playbook_dir }}/../catalyst/portage/package.use/generated"
+            trim_blocks: true
+            lstrip_blocks: true
 
-    - name: ensure spec dir exists
-      ansible.builtin.file:
-        path: "{{ spec_out | dirname }}"
-        state: directory
+        - name: ensure spec dir exists
+          ansible.builtin.file:
+            path: "{{ spec_out | dirname }}"
+            state: directory
 
-    - name: render the catalyst spec
-      ansible.builtin.template:
-        src: stage4.spec.j2
-        dest: "{{ spec_out }}"
+        - name: render the catalyst spec
+          ansible.builtin.template:
+            src: stage4.spec.j2
+            dest: "{{ spec_out }}"
 
-    - name: report
-      ansible.builtin.debug:
-        msg: "{{ run_roles | length }} roles -> {{ stage4_packages | length }} packages -> {{ spec_out }}"
+        - name: report
+          ansible.builtin.debug:
+            msg: "{{ run_roles | length }} roles -> {{ stage4_packages | length }} packages -> {{ spec_out }}"
